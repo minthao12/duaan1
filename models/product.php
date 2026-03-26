@@ -27,4 +27,18 @@ class Product {
 
         return $data;
     }
+    public function getVariantById($id) {
+        // Câu truy vấn tương tự getAllVariants nhưng thêm điều kiện WHERE
+        $sql = "SELECT pv.*, p.name AS product_name, c.name AS color_name, s.name AS size_name
+                FROM product_variants pv
+                JOIN products p ON pv.product_id = p.id
+                JOIN color c ON pv.color_id = c.id
+                JOIN size s ON pv.size_id = s.id
+                WHERE pv.id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->fetch_assoc(); 
+    }
 }

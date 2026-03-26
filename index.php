@@ -14,9 +14,20 @@ $act = $_GET['act'] ?? '/';
 
 switch ($act) {
 
-   case '/':
-    (new HomeController())->dashboard(); // gọi luôn dashboard
+    // Trang chủ
+    case '/':
+        (new HomeController())->home();
+        break;
+
+    // Trang quản trị
+   case 'admin':
+    (new HomeController())->dashboard();
     break;
+
+    case 'detail':
+        (new HomeController())->detail();
+        break;
+
     default:
         echo "404 - Không tìm thấy trang";
         break;
