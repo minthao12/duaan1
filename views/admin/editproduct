@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Sửa sản phẩm</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body { background: #f5f7fb; }
+        .card { border-radius: 15px; }
+    </style>
+</head>
+
+<body>
+
+<div class="container mt-5">
+
+    <div class="card shadow">
+        <div class="card-header bg-warning">
+            <h4 class="mb-0">✏️ Sửa sản phẩm</h4>
+        </div>
+
+        <div class="card-body">
+
+          <form action="index.php?act=updateproduct&id=<?= $product['id'] ?>" 
+      method="POST" 
+      enctype="multipart/form-data">
+
+    <input type="hidden" name="id" value="<?= $product['id'] ?>">
+
+  <!-- Tên -->
+<div class="mb-3">
+    <label class="form-label">Tên sản phẩm</label>
+    <input type="text" class="form-control"
+           name="name"
+           value="<?= $product['product_name'] ?? '' ?>">
+</div>
+
+<!-- Ảnh hiện tại -->
+<div class="mb-3">
+    <label class="form-label">Ảnh hiện tại</label><br>
+   <img src="uploads/<?= $product['image'] ?>" width="100">
+</div>
+
+
+<!-- Chọn ảnh mới -->
+<div class="mb-3">
+    <label class="form-label">Chọn ảnh mới</label>
+    <input type="file" class="form-control" name="image">
+</div>
+
+
+<!-- Giá -->
+<div class="mb-3">
+    <label class="form-label">Giá</label>
+    <input type="number" class="form-control"
+           name="price"
+           value="<?= $product['price'] ?? 0 ?>">
+</div>
+
+<!-- Màu -->
+ <div class="mb-3">
+ <label class="form-label">Màu</label>
+<select name="color_id" class="form-select">
+    <?php foreach ($colors as $c): ?>
+        <option value="<?= $c['id'] ?>"
+            <?= ($c['id'] == ($product['color_id'] ?? 0)) ? 'selected' : '' ?>>
+            <?= $c['name'] ?>
+        </option>
+    <?php endforeach; ?>
+</select>
+</div>
+
+<!-- Size -->
+<div class="mb-3">
+    <label class="form-label">Size</label>
+    <select name="size_id" class="form-select">
+        <?php foreach ($sizes as $s): ?>
+            <option value="<?= $s['id'] ?>"
+                <?= ($s['id'] == ($product['size_id'] ?? 0)) ? 'selected' : '' ?>>
+                <?= $s['name'] ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+</div>
+
+<!-- Số lượng -->
+<div class="mb-3">
+    <label class="form-label">Số lượng</label>
+    <input type="number" class="form-control"
+           name="stock"
+           value="<?= $product['stock'] ?? 0 ?>">
+</div>
+
+<!-- Mô tả -->
+<div class="mb-3">
+    <label class="form-label">Mô tả</label>
+    <textarea class="form-control" name="description"><?= $product['description'] ?? '' ?></textarea>
+</div>
+    <button class="btn btn-success">Cập nhật</button>
+</form>
+
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>
+  
