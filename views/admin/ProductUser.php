@@ -1,4 +1,3 @@
-<?php session_start(); ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -88,32 +87,32 @@
 
         <!-- Sidebar -->
         <?php
-$currentAct = $_GET['act'] ?? '/';
-?>
+        $currentAct = $_GET['act'] ?? '/';
+        ?>
 
-<div class="col-md-2 sidebar p-3">
-    <h4 class="text-white text-center mb-4">HDTT</h4>
+        <div class="col-md-2 sidebar p-3">
+            <h4 class="text-white text-center mb-4">HDTT</h4>
 
-    <a href="?act=/" class="<?= ($currentAct == '/' || $currentAct == 'admin' || $currentAct == 'detail') ? 'active' : '' ?>">
-        <i class="bi bi-speedometer2"></i> Dashboard
-    </a>
+            <a href="?act=/" class="<?= ($currentAct == '/' || $currentAct == 'admin') ? 'active' : '' ?>">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
 
-    <a href="?act=ProductUser" class="<?= ($currentAct == 'ProductUser') ? 'active' : '' ?>">
-        <i class="bi bi-bag"></i>Danh mục Sản phẩm
-    </a>
+            <a href="?act=ProductUser" class="<?= ($currentAct == 'ProductUser') ? 'active' : '' ?>">
+                <i class="bi bi-bag"></i>Danh mục Sản phẩm
+            </a>
 
-    <a href="?act=donhang" class="<?= ($currentAct == 'donhang') ? 'active' : '' ?>">
-        <i class="bi bi-receipt"></i> Đơn hàng
-    </a>
+            <a href="?act=donhang" class="<?= ($currentAct == 'donhang') ? 'active' : '' ?>">
+                <i class="bi bi-receipt"></i> Đơn hàng
+            </a>
 
-    <a href="?act=users" class="<?= ($currentAct == 'users' || $currentAct == 'editUser' || $currentAct == 'deleteUser') ? 'active' : '' ?>">
-        <i class="bi bi-people"></i> Người dùng
-    </a>
+            <a href="?act=users" class="<?= ($currentAct == 'users' || $currentAct == 'editUser') ? 'active' : '' ?>">
+                <i class="bi bi-people"></i> Người dùng
+            </a>
 
-    <a href="?act=thongke" class="<?= ($currentAct == 'thongke') ? 'active' : '' ?>">
-        <i class="bi bi-bar-chart"></i> Thống kê
-    </a>
-</div>
+            <a href="?act=thongke" class="<?= ($currentAct == 'thongke') ? 'active' : '' ?>">
+                <i class="bi bi-bar-chart"></i> Thống kê
+            </a>
+        </div>
 
         <!-- Main -->
         <div class="col-md-10 p-3">
@@ -121,18 +120,16 @@ $currentAct = $_GET['act'] ?? '/';
             <!-- Header -->
             <div class="header d-flex justify-content-between align-items-center p-3 shadow-sm mb-4">
                 <h5 class="mb-0">Dashboard</h5>
-                
 
-                <!-- Đây là phần đăng nhập nhé các bạn -->
                 <div class="d-flex align-items-center gap-3">
                     <form method="GET" class="d-flex align-items-center gap-2">
-                        <input type="hidden" name="act" value="/">
+                        <input type="hidden" name="act" value="ProductUser">
 
                         <input 
                             type="text" 
                             name="keyword" 
                             class="form-control form-control-sm" 
-                            placeholder="Tìm kiếm..."
+                            placeholder="Tìm theo sản phẩm, màu, size..."
                             value="<?= $_GET['keyword'] ?? '' ?>"
                         >
 
@@ -148,9 +145,6 @@ $currentAct = $_GET['act'] ?? '/';
                         <a href="?act=register" class="btn btn-success btn-sm">Đăng ký</a>
                     <?php endif; ?>
                 </div>
-
-                    <!-- Hết -->
-
             </div>
 
             <!-- Cards -->
@@ -185,52 +179,50 @@ $currentAct = $_GET['act'] ?? '/';
                 </div>
 
             </div>
-                    <?php if (!empty($_GET['keyword'])): ?>
-                        <p>
-                            Bạn đang tìm: <b><?= $_GET['keyword'] ?></b>
-                        </p>
-                    <?php endif; ?>
+                        <?php if (!empty($_GET['keyword'])): ?>
+                            <p>Bạn đang tìm: <b><?= $_GET['keyword'] ?></b></p>
+                        <?php endif; ?>
             <!-- Table -->
-            <!-- Table -->
-<table class="table table-hover align-middle">
+            <table class="table table-hover align-middle">
     <thead class="table-light">
         <tr>
             <th>ID</th>
-            <th>Tên sản phẩm</th>
-            <th>Danh mục</th>
-            <th>Mô tả</th>
-            <th>Action</th>
+            <th>Ảnh</th>
+            <th>Sản phẩm</th>
+            <th>Màu</th>
+            <th>Size</th>
+            <th>Giá</th>
+            <th>Tồn kho</th>
+            
         </tr>
     </thead>
 
     <tbody>
-    <?php if (!empty($products)): ?>
-        <?php foreach ($products as $item): ?>
+        <?php if (!empty($variants)): ?>
+            <?php foreach ($variants as $item): ?>
+                <tr>
+                    <td><?= $item['id'] ?></td>
+                    <td><img src="uploads/<?= $item['image'] ?>" width="80"></td>
+                    <td><?= $item['product_name'] ?></td>
+                    <td><?= $item['color_name'] ?></td>
+                    <td><?= $item['size_name'] ?></td>
+                    <td><?= number_format($item['price']) ?>đ</td>
+                    <td>
+                        <?php if ($item['stock'] > 0): ?>
+                            <span class="badge bg-success"><?= $item['stock'] ?></span>
+                        <?php else: ?>
+                            <span class="badge bg-danger">Hết hàng</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        <?php else: ?>
             <tr>
-                <td><?= $item['id'] ?></td>
-                <td class="fw-bold"><?= $item['name'] ?></td>
-                <td>
-                    <span class="badge bg-info text-dark">
-                        <?= isset($item['category_name']) ? $item['category_name'] : 'Chưa phân loại' ?>
-                    </span>
-                </td>
-                <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?= htmlspecialchars($item['description']) ?>">
-                    <?= $item['description'] ?>
-                </td>
-                <td>
-                    <a class="btn btn-primary btn-sm" href="?act=detail&id=<?= $item['id'] ?>">
-                        <i class="bi bi-eye"></i> View
-                    </a>
-                </td>
+                <td colspan="7" class="text-center text-danger">Không tìm thấy sản phẩm</td>
             </tr>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <tr>
-            <td colspan="5" class="text-center text-danger">Không tìm thấy sản phẩm</td>
-        </tr>
-    <?php endif; ?>
+        <?php endif; ?>
     </tbody>
-</table>
+                </table>
 
             </div>
 
