@@ -162,6 +162,7 @@
             <td><?= $item['product_name'] ?></td>
             <td><?= $item['color_name'] ?></td>
             <td><?= $item['size_name'] ?></td>
+            <!-- <td><?= $icom[''] ?></td> -->
             <td><?= number_format($item['price']) ?>đ</td>
             <td>
                 <?php if ($item['stock'] > 0): ?>

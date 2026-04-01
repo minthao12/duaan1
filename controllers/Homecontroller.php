@@ -19,7 +19,7 @@ public function detail() {
             $productModel = new Product();
             $item = $productModel->getVariantById($id); 
             if ($item) {
-                require_once __DIR__ . '/../views/admin/ViewProduct/DetailProduct.php';
+                require_once __DIR__ . '/../views/admin/datailproduct.php';
             } else {
                 echo "Không tìm thấy sản phẩm này trong cơ sở dữ liệu!";
             }

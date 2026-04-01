@@ -155,6 +155,7 @@
             <th>Giá</th>
             <th>Tồn kho</th>
         </tr>
+        <a href="?act=add-product" class="btn btn-primary mb-3">thêm sản phẩm </a>
     </thead>
 
     <tbody>
@@ -172,6 +173,9 @@
             <?php else: ?>
                 <span class="badge bg-danger">Hết hàng</span>
             <?php endif; ?>
+        </td>
+        <td>
+         <a class="btn btn-danger" href="?act=detail&id=<?= $item['id'] ?>">View</a>
         </td>
     </tr>
 <?php endforeach; ?>
