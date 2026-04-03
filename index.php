@@ -5,13 +5,13 @@ require_once './commons/function.php';
 
 // Controllers
 require_once './controllers/HomeController.php';
+require_once './controllers/AdminController.php';
 
 // Models
 require_once './models/Product.php';
 
 // Route
 $act = $_GET['act'] ?? '/';
-
 switch ($act) {
 
     // Trang chủ
@@ -20,28 +20,31 @@ switch ($act) {
         break;
 
     // Trang quản trị
-   case 'admin':
-    (new HomeController())->dashboard();
+  case 'home_admin'
+  (new Admincontroller()) ->home_admin();
+  break; 
+  case 'admin':
+    (new AdminController())->dashboard();
     break;
 
     case 'detail':
-        (new HomeController())->detail();
+        (new Admincontroller())->detail();
         break;
 
     case 'ProductUser':
-        (new HomeController())->ProductUser();
+        (new Admincontroller())->ProductUser();
         break;
     
     case 'login':
-    (new HomeController())->login();
+    (new Admincontroller)->login();
     break;
     
     case 'adminProduct':
-        (new HomeController())->adminProduct();
+        (new Admincontroller())->adminProduct();
         break;
 
     case 'register':
-        (new HomeController())->register();
+        (new Admincontroller())->register();
         break;
 
     case 'logout':
@@ -51,35 +54,35 @@ switch ($act) {
         break;
     
     case 'users':
-        (new HomeController())->users();
+        (new Admincontroller())->users();
         break;
     
     case 'editUser':
-        (new HomeController())->editUser();
+        (new Admincontroller())->editUser();
         break;
 
     case 'deleteUser':
-        (new HomeController())->deleteUser();
+        (new Admincontroller())->deleteUser();
         break;
 
     case 'CateProduct':
-        (new HomeController())->CateProduct();
+        (new Admincontroller())->CateProduct();
         break;
 
     case 'CateProduct':
-        (new HomeController())->CateProduct();
+        (new Admincontroller())->CateProduct();
         break;
 
     case 'addCateProduct':
-        (new HomeController())->addCateProduct();
+        (new Admincontroller())->addCateProduct();
         break;
 
     case 'editCateProduct':
-        (new HomeController())->editCateProduct();
+        (new Admincontroller())->editCateProduct();
         break;
 
     case 'deleteCateProduct':
-        (new HomeController())->deleteCateProduct();
+        (new Admincontroller())->deleteCateProduct();
         break;
     default:
         echo "404 - Không tìm thấy trang";
