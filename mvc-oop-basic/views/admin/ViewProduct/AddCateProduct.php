@@ -1,4 +1,3 @@
-<?php session_start(); ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -139,7 +138,15 @@
             <h3><i class="bi bi-bag-plus me-2"></i>Thêm mới sản phẩm</h3>
             <p>Nhập đầy đủ thông tin biến thể: sản phẩm, màu sắc, kích thước, giá và tồn kho</p>
         </div>
-
+    <?php if (!empty($errors)): ?>
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                <?php foreach ($errors as $error): ?>
+                    <li><?= htmlspecialchars($error) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
         <div class="form-body">
             <form method="POST" enctype="multipart/form-data">
                 <div class="section-title">

@@ -24,7 +24,15 @@
 
 <div class="card shadow p-4">
     <h3 class="text-center mb-3">✏️ Sửa người dùng</h3>
-
+    <?php if (!empty($errors)): ?>
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                <?php foreach ($errors as $error): ?>
+                    <li><?= htmlspecialchars($error) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
     <form method="POST">
         <input type="text" name="username" class="form-control mb-2"
                value="<?= $user['username'] ?>" required>

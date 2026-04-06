@@ -53,7 +53,15 @@
     </style>
 </head>
 <body>
-
+<?php if (!empty($errors)): ?>
+    <div class="alert alert-danger">
+        <ul class="mb-0">
+            <?php foreach ($errors as $error): ?>
+                <li><?= htmlspecialchars($error) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+<?php endif; ?>
 <form method="POST" class="register-card">
     <div class="text-center mb-3">
         <div class="logo">HDTT</div>

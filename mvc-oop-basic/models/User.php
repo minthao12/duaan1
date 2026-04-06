@@ -10,19 +10,26 @@ class User {
         }
     }
 
-    // Đăng ký
     public function register($username, $email, $std, $diachi, $password) {
-        $sql = "INSERT INTO users(username, email, std, diachi, password) VALUES (?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO users(username, email, std, diachi, password, role) VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = $this->conn->prepare($sql);
 
+        if (!$stmt) {
+            die("Lỗi prepare register: " . $this->conn->error);
+        }
+
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $role = 'user';
 
-        $stmt->bind_param("sssss", $username, $email, $std, $diachi, $hashedPassword);
+        $stmt->bind_param("ssssss", $username, $email, $std, $diachi, $hashedPassword, $role);
 
-        return $stmt->execute();
+        if (!$stmt->execute()) {
+            die("Lỗi execute register: " . $stmt->error);
+        }
+
+        return true;
     }
 
-    // Đăng nhập
     public function login($username, $password) {
         $sql = "SELECT * FROM users WHERE username = ?";
         $stmt = $this->conn->prepare($sql);
@@ -39,9 +46,6 @@ class User {
         return false;
     }
 
-    // Người dùng
-
-    // Lấy tất cả user
     public function getAllUsers() {
         $sql = "SELECT * FROM users";
         $result = $this->conn->query($sql);
@@ -55,34 +59,29 @@ class User {
     }
 
     public function getUserById($id) {
-    $sql = "SELECT * FROM users WHERE id = ?";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
+        $sql = "SELECT * FROM users WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
 
-    return $stmt->get_result()->fetch_assoc();
+        return $stmt->get_result()->fetch_assoc();
     }
-
 
     public function updateUser($id, $data) {
-    $sql = "UPDATE users 
-            SET username=?, email=?, std=?, diachi=? 
-            WHERE id=?";
+        $sql = "UPDATE users SET username=?, email=?, std=?, diachi=? WHERE id=?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param(
+            "ssssi",
+            $data['username'],
+            $data['email'],
+            $data['std'],
+            $data['diachi'],
+            $id
+        );
 
-    $stmt = $this->conn->prepare($sql);
-
-    $stmt->bind_param(
-        "ssssi",
-        $data['username'],
-        $data['email'],
-        $data['std'],
-        $data['diachi'],
-        $id
-    );
-
-    return $stmt->execute();
+        return $stmt->execute();
     }
-    // Xóa user
+
     public function deleteUser($id) {
         $sql = "DELETE FROM users WHERE id = ?";
         $stmt = $this->conn->prepare($sql);

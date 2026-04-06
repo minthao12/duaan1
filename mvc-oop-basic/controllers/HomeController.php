@@ -2,242 +2,131 @@
 require_once __DIR__ . '/../models/Product.php';
 require_once __DIR__ . '/../models/User.php';
 
-class HomeController {
-
-    public function dashboard() {
-    $productModel = new Product();
-
-    $keyword = $_GET['keyword'] ?? '';
-
-    $products = $productModel->getAllProducts($keyword);
-
-    require_once __DIR__ . '/../views/admin/main.php';
-    }
-    public function home() {
-            $this->dashboard(); // gọi lại dashboard
-        }
-
-    public function detail() {
-        $id = $_GET['id'] ?? null;
-
-        if ($id) {
-            $productModel = new Product();
-            $item = $productModel->getProductDetailById($id); 
-            
-            if ($item) {
-                require_once __DIR__ . '/../views/admin/ViewProduct/DetailProduct.php';
-            } else {
-                echo "Không tìm thấy sản phẩm này trong cơ sở dữ liệu!";
-            }
-        } else {
-            echo "URL thiếu ID sản phẩm!";
-        }
+class HomeController{
+    public function __construct()
+    {
     }
 
-    public function ProductUser() {
-    $productModel = new Product();
-    $keyword = $_GET['keyword'] ?? '';
-    $variants = $productModel->getAllVariants($keyword);
-
-    require_once __DIR__ . '/../views/admin/ProductUser.php';
+    public function home()
+    {
+        $this->giaodien();
     }
 
-    // Đây là phần danh mục sản phẩm của admin
-
-
-    public function login() {
-    session_start();
-    $error = "";
-
-    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        $userModel = new User();
-
-        $user = $userModel->login($_POST['username'], $_POST['password']);
-
-        if ($user) {
-            $_SESSION['user'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
-
-            header("Location: index.php?act=adminProduct");
-            exit;
-        } else {
-            $error = "Sai tài khoản hoặc mật khẩu!";
-        }
-    }
-
-    require_once __DIR__ . '/../views/admin/ViewProduct/login.php';
-}
-
-    public function register() {
-    $message = "";
-
-    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        $userModel = new User();
-
-        $ok = $userModel->register(
-            $_POST['username'],
-            $_POST['email'],
-            $_POST['std'],
-            $_POST['diachi'],
-            $_POST['password']
-        );
-
-        if ($ok) {
-            $message = "Đăng ký thành công!";
-        } else {
-            $message = "Đăng ký thất bại!";
-        }
-    }
-    require_once __DIR__ . '/../views/admin/ViewProduct/register.php';
-    }
-    
-    public function adminProduct() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    if (!isset($_SESSION['user'])) {
-        header("Location: index.php?act=login");
-        exit;
-    }
-
-    $productModel = new Product();
-    $keyword = $_GET['keyword'] ?? '';
-    $products = $productModel->getAllProducts($keyword);
-
-    require_once __DIR__ . '/../views/admin/ViewProduct/adminProduct.php';
-    }
-
-
-    //người dùng
-    public function users() {
-    session_start();
-
-    // chặn nếu chưa login
-    if (!isset($_SESSION['user'])) {
-        header("Location: index.php?act=login");
-        exit;
-    }
-
-    $userModel = new User();
-    $users = $userModel->getAllUsers();
-
-    require_once __DIR__ . '/../views/admin/User/users.php';
-    }
-
-    public function deleteUser() {
-    $id = $_GET['id'];
-
-    $userModel = new User();
-    $userModel->deleteUser($id);
-
-    header("Location: index.php?act=users");
-    }
-
-    public function editUser() {
-    $id = $_GET['id'];
-    $userModel = new User();
-
-    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        $userModel->updateUser($id, $_POST);
-        header("Location: index.php?act=users");
-        exit;
-    }
-
-    $user = $userModel->getUserById($id);
-
-    require_once __DIR__ . '/../views/admin/User/EditUser.php';
-    }
-
-    // Danh mục sản phẩm
-    public function CateProduct() {
+    public function giaodien()
+    {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
 
-        if (!isset($_SESSION['user'])) {
-            header("Location: index.php?act=login");
-            exit;
-        }
-
         $productModel = new Product();
-        $variants = $productModel->getAllVariants();
+        $keyword = trim($_GET['keyword'] ?? '');
+        $products = $productModel->getAllVariants($keyword);
 
-        require_once __DIR__ . '/../views/admin/ViewProduct/CateProduct.php';
+        require_once __DIR__ . '/../views/client/giaodien/index.php';
     }
 
-    public function addCateProduct() {
-        $productModel = new Product();
+    public function loginUser()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $imageName = '';
+        $error = "";
+        $errors = [];
 
-            if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-                $imageName = time() . '_' . $_FILES['image']['name'];
-                move_uploaded_file($_FILES['image']['tmp_name'], 'uploads/' . $imageName);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = trim($_POST['username'] ?? '');
+            $password = $_POST['password'] ?? '';
+
+            if ($username === '') {
+                $errors[] = "Username không được để trống.";
             }
 
-            $data = [
-                'product_id' => $_POST['product_id'],
-                'color_id'   => $_POST['color_id'],
-                'size_id'    => $_POST['size_id'],
-                'image'      => $imageName,
-                'price'      => $_POST['price'],
-                'stock'      => $_POST['stock']
-            ];
-
-            $productModel->addVariant($data);
-            header("Location: index.php?act=CateProduct");
-            exit;
-        }
-
-        $products = $productModel->getProducts();
-        $colors = $productModel->getColors();
-        $sizes = $productModel->getSizes();
-
-        require_once __DIR__ . '/../views/admin/ViewProduct/AddCateProduct.php';
-    }
-
-    public function editCateProduct() {
-        $id = $_GET['id'];
-        $productModel = new Product();
-
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $imageName = $_POST['old_image'];
-
-            if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-                $imageName = time() . '_' . $_FILES['image']['name'];
-                move_uploaded_file($_FILES['image']['tmp_name'], 'uploads/' . $imageName);
+            if ($password === '') {
+                $errors[] = "Mật khẩu không được để trống.";
             }
 
-            $data = [
-                'product_id' => $_POST['product_id'],
-                'color_id'   => $_POST['color_id'],
-                'size_id'    => $_POST['size_id'],
-                'image'      => $imageName,
-                'price'      => $_POST['price'],
-                'stock'      => $_POST['stock']
-            ];
+            if (empty($errors)) {
+                $userModel = new User();
+                $user = $userModel->login($username, $password);
 
-            $productModel->updateVariant($id, $data);
-            header("Location: index.php?act=CateProduct");
-            exit;
+                if ($user) {
+                    $_SESSION['user'] = $user['username'];
+                    $_SESSION['role'] = $user['role'];
+
+                    if ($user['role'] === 'admin') {
+                        header("Location: index.php?act=adminProduct");
+                        exit;
+                    }
+
+                    header("Location: index.php?act=giaodien");
+                    exit;
+                } else {
+                    $error = "Sai tài khoản hoặc mật khẩu!";
+                }
+            }
         }
 
-        $variant = $productModel->getVariantById($id);
-        $products = $productModel->getProducts();
-        $colors = $productModel->getColors();
-        $sizes = $productModel->getSizes();
-
-        require_once __DIR__ . '/../views/admin/ViewProduct/EditCateProduct.php';
+        require_once __DIR__ . '/../views/client/giaodien/loginUser.php';
     }
 
-public function deleteCateProduct() {
-    $id = $_GET['id'];
-    $productModel = new Product();
-    $productModel->deleteVariant($id);
+    public function registerUser()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
-    header("Location: index.php?act=CateProduct");
-    exit;
-}
+        $message = "";
+        $errors = [];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = trim($_POST['username'] ?? '');
+            $email    = trim($_POST['email'] ?? '');
+            $std      = trim($_POST['std'] ?? '');
+            $diachi   = trim($_POST['diachi'] ?? '');
+            $password = $_POST['password'] ?? '';
+
+            if ($username === '') {
+                $errors[] = "Username không được để trống.";
+            } elseif (mb_strlen($username) < 3) {
+                $errors[] = "Username phải có ít nhất 3 ký tự.";
+            }
+
+            if ($email === '') {
+                $errors[] = "Email không được để trống.";
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = "Email không hợp lệ.";
+            }
+
+            if ($std === '') {
+                $errors[] = "Số điện thoại không được để trống.";
+            } elseif (!preg_match('/^[0-9]{9,11}$/', $std)) {
+                $errors[] = "Số điện thoại phải từ 9 đến 11 chữ số.";
+            }
+
+            if ($diachi === '') {
+                $errors[] = "Địa chỉ không được để trống.";
+            }
+
+            if ($password === '') {
+                $errors[] = "Mật khẩu không được để trống.";
+            } elseif (strlen($password) < 6) {
+                $errors[] = "Mật khẩu phải có ít nhất 6 ký tự.";
+            }
+
+            if (empty($errors)) {
+                $userModel = new User();
+                $ok = $userModel->register($username, $email, $std, $diachi, $password);
+
+                if ($ok) {
+                    header("Location: index.php?act=loginUser");
+                    exit;
+                } else {
+                    $message = "Đăng ký thất bại!";
+                }
+            }
+        }
+
+        require_once __DIR__ . '/../views/client/giaodien/registerUser.php';
+    }
 }
