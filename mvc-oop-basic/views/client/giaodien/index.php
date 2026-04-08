@@ -120,6 +120,7 @@ if (!empty($products)) {
 
             <div class="col-md-4 col-lg-3 text-center text-lg-end">
                 <div class="d-inline-flex align-items-center">
+<<<<<<< Updated upstream
                     <a href="#" class="text-muted d-flex align-items-center justify-content-center me-3">
                         <span class="rounded-circle btn-md-square border"><i class="fas fa-random"></i></span>
                     </a>
@@ -128,6 +129,16 @@ if (!empty($products)) {
                     </a>
                     <a href="/Duan1/mvc-oop-basic/index.php?act=cart" class="text-muted d-flex align-items-center justify-content-center">
                         <span class="rounded-circle btn-md-square border"><i class="fas fa-shopping-cart"></i></span>
+=======
+                    <a href="#" class="text-muted d-flex align-items-center justify-content-center me-3"><span
+                            class="rounded-circle btn-md-square border"><i class="fas fa-random"></i></span></a>
+                    <a href="#" class="text-muted d-flex align-items-center justify-content-center me-3"><span
+                            class="rounded-circle btn-md-square border"><i class="fas fa-heart"></i></span></a>
+                    <a href="/Duan1/mvc-oop-basic/index.php?act=cart" class="text-muted d-flex align-items-center justify-content-center">
+                        <span class="rounded-circle btn-md-square border">
+                            <i class="fas fa-shopping-cart"></i>
+                        </span>
+>>>>>>> Stashed changes
                         <span class="text-dark ms-2">Giỏ hàng</span>
                     </a>
                 </div>

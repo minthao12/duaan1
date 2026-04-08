@@ -406,4 +406,218 @@ class Product
 
         return $stmt->execute([$cartId, $userId]);
     }
+        // =========================
+    // ORDER / CHECKOUT
+    // =========================
+
+    public function getCartItemsByIds($userId, $cartIds = [])
+    {
+        if (empty($cartIds)) {
+            return [];
+        }
+
+        $cartIds = array_map('intval', $cartIds);
+        $placeholders = implode(',', array_fill(0, count($cartIds), '?'));
+
+        $types = 'i' . str_repeat('i', count($cartIds));
+        $params = array_merge([$userId], $cartIds);
+
+        $sql = "SELECT 
+                    cart.id,
+                    cart.quantity,
+                    pv.id AS variant_id,
+                    pv.image,
+                    pv.price,
+                    pv.stock,
+                    p.id AS product_id,
+                    p.name AS product_name,
+                    c.name AS color_name,
+                    s.name AS size_name
+                FROM cart
+                JOIN product_variants pv ON cart.variant_id = pv.id
+                JOIN products p ON pv.product_id = p.id
+                JOIN color c ON pv.color_id = c.id
+                JOIN size s ON pv.size_id = s.id
+                WHERE cart.user_id = ?
+                  AND cart.id IN ($placeholders)
+                ORDER BY cart.id DESC";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $data = [];
+        while ($row = $result->fetch_assoc()) {
+            $data[] = $row;
+        }
+
+        return $data;
+    }
+
+    public function createOrder($data)
+    {
+        $sql = "INSERT INTO orders(
+                    user_id,
+                    total,
+                    status,
+                    payment_status,
+                    online,
+                    receiver_name,
+                    receiver_phone,
+                    receiver_address,
+                    shipping_fee,
+                    payment_method
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $stmt = $this->conn->prepare($sql);
+
+        $stmt->bind_param(
+            "idssssssds",
+            $data['user_id'],
+            $data['total'],
+            $data['status'],
+            $data['payment_status'],
+            $data['online'],
+            $data['receiver_name'],
+            $data['receiver_phone'],
+            $data['receiver_address'],
+            $data['shipping_fee'],
+            $data['payment_method']
+        );
+
+        if ($stmt->execute()) {
+            return $this->conn->insert_id;
+        }
+
+        return false;
+    }
+
+    public function addOrderDetail($orderId, $variantId, $quantity, $price)
+    {
+        $sql = "INSERT INTO order_details(order_id, variant_id, quantity, price)
+                VALUES (?, ?, ?, ?)";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("iiii", $orderId, $variantId, $quantity, $price);
+        return $stmt->execute();
+    }
+
+    public function removeManyCartItems($userId, $cartIds = [])
+    {
+        if (empty($cartIds)) {
+            return false;
+        }
+
+        $cartIds = array_map('intval', $cartIds);
+        $placeholders = implode(',', array_fill(0, count($cartIds), '?'));
+
+        $types = 'i' . str_repeat('i', count($cartIds));
+        $params = array_merge([$userId], $cartIds);
+
+        $sql = "DELETE FROM cart
+                WHERE user_id = ?
+                  AND id IN ($placeholders)";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        return $stmt->execute();
+    }
+
+    public function updateVariantStock($variantId, $quantity)
+    {
+        $sql = "UPDATE product_variants
+                SET stock = stock - ?
+                WHERE id = ? AND stock >= ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("iii", $quantity, $variantId, $quantity);
+        return $stmt->execute();
+    }
+
+    public function getOrdersByUser($userId)
+    {
+        $sql = "SELECT *
+                FROM orders
+                WHERE user_id = ?
+                ORDER BY id DESC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        $data = [];
+        while ($row = $result->fetch_assoc()) {
+            $data[] = $row;
+        }
+        return $data;
+    }
+
+    public function getAllOrders()
+    {
+        $sql = "SELECT o.*, u.username, u.email
+                FROM orders o
+                LEFT JOIN users u ON o.user_id = u.id
+                ORDER BY o.id DESC";
+
+        $result = $this->conn->query($sql);
+        $data = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $data[] = $row;
+        }
+
+        return $data;
+    }
+
+    public function getOrderById($id)
+    {
+        $sql = "SELECT o.*, u.username, u.email
+                FROM orders o
+                LEFT JOIN users u ON o.user_id = u.id
+                WHERE o.id = ?
+                LIMIT 1";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+
+        return $stmt->get_result()->fetch_assoc();
+    }
+
+    public function updateOrderStatusByAdmin($id, $status, $paymentStatus)
+    {
+        $sql = "UPDATE orders
+                SET status = ?, payment_status = ?
+                WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ssi", $status, $paymentStatus, $id);
+        return $stmt->execute();
+    }
+
+    public function getOrderDetails($orderId)
+    {
+        $sql = "SELECT 
+                    od.*,
+                    p.name AS product_name,
+                    pv.image,
+                    c.name AS color_name,
+                    s.name AS size_name
+                FROM order_details od
+                JOIN product_variants pv ON od.variant_id = pv.id
+                JOIN products p ON pv.product_id = p.id
+                LEFT JOIN color c ON pv.color_id = c.id
+                LEFT JOIN size s ON pv.size_id = s.id
+                WHERE od.order_id = ?
+                ORDER BY od.id ASC";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $orderId);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        $data = [];
+        while ($row = $result->fetch_assoc()) {
+            $data[] = $row;
+        }
+
+        return $data;
+    }
 }
