@@ -457,4 +457,63 @@ class admincontroller
 
         $this->redirect('users');
     }
+
+        public function donhang()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['user']) || ($_SESSION['role'] ?? '') !== 'admin') {
+            header("Location: index.php?act=login");
+            exit;
+        }
+
+        $productModel = new Product();
+        $orders = $productModel->getAllOrders();
+
+        require_once __DIR__ . '/../views/admin/Order/donhang.php';
+    }
+
+    public function updateOrderStatus()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['user']) || ($_SESSION['role'] ?? '') !== 'admin') {
+            header("Location: index.php?act=login");
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header("Location: index.php?act=donhang");
+            exit;
+        }
+
+        $id = (int)($_POST['id'] ?? 0);
+        $status = trim($_POST['status'] ?? '');
+        $paymentStatus = trim($_POST['payment_status'] ?? '');
+
+        $validStatus = ['pending', 'completed', 'cancelled'];
+        $validPaymentStatus = ['unpaid', 'paid'];
+
+        if ($id <= 0 || !in_array($status, $validStatus, true) || !in_array($paymentStatus, $validPaymentStatus, true)) {
+            echo "Dữ liệu cập nhật trạng thái không hợp lệ!";
+            return;
+        }
+
+        $productModel = new Product();
+        $order = $productModel->getOrderById($id);
+
+        if (!$order) {
+            echo "Không tìm thấy đơn hàng!";
+            return;
+        }
+
+        $productModel->updateOrderStatusByAdmin($id, $status, $paymentStatus);
+
+        header("Location: index.php?act=donhang");
+        exit;
+    }
 }
