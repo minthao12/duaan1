@@ -89,6 +89,15 @@
             <h2 class="mb-3"><?= htmlspecialchars($firstVariant['product_name']) ?></h2>
 
             <h4 class="text-primary mb-3"><?= number_format($firstVariant['price']) ?>đ</h4>
+            <?php
+                $hasStock = false;
+                foreach ($variants as $v) {
+                    if ((int)$v['stock'] > 0) {
+                        $hasStock = true;
+                        break;
+                    }
+                }
+            ?>
 
             <p class="mb-4"><?= htmlspecialchars($firstVariant['description']) ?></p>
 
@@ -121,14 +130,20 @@
                 </div>
 
                 <div class="d-flex gap-3">
-                    <button type="submit" class="btn btn-primary rounded-pill px-4 py-2">
-                        <i class="fas fa-shopping-cart me-2"></i>Thêm vào giỏ hàng
-                    </button>
+                    <?php if ($hasStock): ?>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2">
+                            <i class="fas fa-shopping-cart me-2"></i>Thêm vào giỏ hàng
+                        </button>
 
-                    <button type="submit" formaction="/Duan1/mvc-oop-basic/index.php?act=addToCart"
-                            class="btn btn-secondary rounded-pill px-4 py-2">
-                        <i class="fas fa-bolt me-2"></i>Mua ngay
-                    </button>
+                        <button type="submit" formaction="/Duan1/mvc-oop-basic/index.php?act=addToCart"
+                                class="btn btn-secondary rounded-pill px-4 py-2">
+                            <i class="fas fa-bolt me-2"></i>Mua ngay
+                        </button>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-danger rounded-pill px-4 py-2" disabled>
+                            Hết hàng
+                        </button>
+                    <?php endif; ?>
                 </div>
             </form>
         </div>

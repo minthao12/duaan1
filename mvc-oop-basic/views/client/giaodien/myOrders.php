@@ -3,9 +3,12 @@
 <?php
 function hienThiTrangThaiDonHang($status) {
     return match ($status) {
-        'pending' => 'Chờ xác nhận',
-        'completed' => 'Hoàn thành',
-        'cancelled' => 'Đã hủy',
+        'cho_xac_nhan'    => 'Chờ xác nhận',
+        'dang_lay_hang'   => 'Đang lấy hàng',
+        'dang_van_chuyen' => 'Đang vận chuyển',
+        'da_van_chuyen'   => 'Đã vận chuyển',
+        'hoan_thanh'      => 'Hoàn thành',
+        'da_huy'          => 'Đã hủy',
         default => 'Không xác định',
     };
 }
@@ -47,6 +50,7 @@ function hienThiTrangThaiThanhToan($paymentStatus) {
                         <th>Trạng thái đơn</th>
                         <th>Trạng thái thanh toán</th>
                         <th>Hình thức</th>
+                        <th>Thao tác</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -62,6 +66,12 @@ function hienThiTrangThaiThanhToan($paymentStatus) {
                             <td><?= hienThiTrangThaiThanhToan($order['payment_status']) ?></td>
                             <td>
                                 <?= ($order['payment_method'] === 'cod') ? 'Thanh toán khi nhận hàng' : htmlspecialchars($order['payment_method']) ?>
+                            </td>
+                            <td>
+                                <a href="/Duan1/mvc-oop-basic/index.php?act=orderDetail&id=<?= $order['id'] ?>"
+                                class="btn btn-sm btn-primary">
+                                    Xem chi tiết
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

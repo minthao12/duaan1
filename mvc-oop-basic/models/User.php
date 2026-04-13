@@ -155,4 +155,26 @@ class User
 
         return $stmt->execute([$id]);
     }
+
+    // ===== HÀM USER CONTROLLER nhé các bạn =====
+
+    public function getAllUsers(): array
+    {
+        return $this->getAll();
+    }
+
+    public function getUserById(int $id): array|false
+    {
+        return $this->findById($id);
+    }
+
+    public function updateUser(int $id, array $data): bool
+    {
+        return $this->update($id, $data);
+    }
+
+    public function deleteUser(int $id): bool
+    {
+        return $this->delete($id);
+    }
 }

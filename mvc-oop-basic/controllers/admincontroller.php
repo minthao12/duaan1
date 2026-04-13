@@ -3,517 +3,779 @@
 require_once __DIR__ . '/../models/Product.php';
 require_once __DIR__ . '/../models/User.php';
 
-class admincontroller
-{
-    private Product $productModel;
-    private User $userModel;
+class admincontroller {
 
-    public function __construct()
-    {
+    public function dashboard() {
+        $productModel = new Product();
+        $keyword = trim($_GET['keyword'] ?? '');
+        $products = $productModel->getAllProducts($keyword);
+
+        require_once __DIR__ . '/../views/admin/main.php';
+    }
+
+    public function home() {
+        $this->dashboard();
+    }
+
+    public function detail() {
+        $id = $_GET['id'] ?? null;
+
+        if (!$id || !is_numeric($id) || (int)$id <= 0) {
+            echo "ID sản phẩm không hợp lệ!";
+            return;
+        }
+
+        $productModel = new Product();
+        $item = $productModel->getProductDetailById((int)$id);
+
+        if ($item) {
+            require_once __DIR__ . '/../views/admin/ViewProduct/DetailProduct.php';
+        } else {
+            echo "Không tìm thấy sản phẩm này trong cơ sở dữ liệu!";
+        }
+    }
+
+    public function ProductUser() {
+        $productModel = new Product();
+        $keyword = trim($_GET['keyword'] ?? '');
+        $variants = $productModel->getAllVariants($keyword);
+
+        require_once __DIR__ . '/../views/admin/ProductUser.php';
+    }
+
+    public function login() {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
 
-        $this->productModel = new Product();
-        $this->userModel = new User();
-    }
+        $error = "";
+        $errors = [];
 
-    private function view(string $path, array $data = []): void
-    {
-        extract($data);
-
-        $file = __DIR__ . '/../views/' . $path . '.php';
-
-        if (!file_exists($file)) {
-            die('Không tìm thấy file view: ' . $file);
-        }
-
-        require_once $file;
-    }
-
-    private function redirect(string $act): void
-    {
-        header('Location: index.php?act=' . $act);
-        exit;
-    }
-
-    private function requireAdmin(): void
-    {
-        if (empty($_SESSION['user_id']) || (($_SESSION['role'] ?? 'user') !== 'admin')) {
-            $this->redirect('login');
-        }
-    }
-
-    public function dashboard(): void
-    {
-        $this->requireAdmin();
-
-        $keyword = trim($_GET['keyword'] ?? '');
-        $products = $this->productModel->getAllProducts($keyword);
-
-        $this->view('admin/main', [
-            'products' => $products
-        ]);
-    }
-
-    public function login(): void
-    {
-        $error = '';
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $username = trim($_POST['username'] ?? '');
-            $password = trim($_POST['password'] ?? '');
+            $password = $_POST['password'] ?? '';
 
-            $user = $this->userModel->findByUsername($username);
+            if ($username === '') {
+                $errors[] = "Username không được để trống.";
+            }
 
-            if (!$user) {
-                $error = 'Tài khoản không tồn tại';
-            } else {
-                $passwordMatched = false;
+            if ($password === '') {
+                $errors[] = "Mật khẩu không được để trống.";
+            }
 
-                if (isset($user['password']) && password_verify($password, $user['password'])) {
-                    $passwordMatched = true;
-                }
+            if (empty($errors)) {
+                $userModel = new User();
+                $user = $userModel->login($username, $password);
 
-                if (isset($user['password']) && $user['password'] === $password) {
-                    $passwordMatched = true;
-                }
-
-                if (!$passwordMatched) {
-                    $error = 'Sai mật khẩu';
-                } elseif (($user['role'] ?? 'user') !== 'admin') {
-                    $error = 'Tài khoản này không có quyền admin';
-                } else {
-                    $_SESSION['user_id'] = (int)$user['id'];
+                if ($user) {
                     $_SESSION['user'] = $user['username'];
-                    $_SESSION['role'] = $user['role'] ?? 'admin';
+                    $_SESSION['role'] = $user['role'];
+                    $_SESSION['user_id'] = $user['id'];
 
-                    $this->redirect('admin');
+                    header("Location: index.php?act=adminProduct");
+                    exit;
+                } else {
+                    $error = "Sai tài khoản hoặc mật khẩu!";
                 }
             }
         }
 
-        $this->view('admin/ViewProduct/login', [
-            'error' => $error
-        ]);
+        require_once __DIR__ . '/../views/admin/ViewProduct/login.php';
     }
 
-    public function register(): void
-    {
-        $message = '';
+    public function register() {
+        $message = "";
+        $errors = [];
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $username = trim($_POST['username'] ?? '');
-            $email = trim($_POST['email'] ?? '');
-            $std = trim($_POST['std'] ?? '');
-            $diachi = trim($_POST['diachi'] ?? '');
-            $password = trim($_POST['password'] ?? '');
+            $email    = trim($_POST['email'] ?? '');
+            $std      = trim($_POST['std'] ?? '');
+            $diachi   = trim($_POST['diachi'] ?? '');
+            $password = $_POST['password'] ?? '';
 
-            if ($username !== '' && $email !== '' && $password !== '') {
-                $ok = $this->userModel->create([
-                    'username' => $username,
-                    'email' => $email,
-                    'std' => $std,
-                    'diachi' => $diachi,
-                    'password' => password_hash($password, PASSWORD_DEFAULT),
-                    'role' => 'admin'
-                ]);
+            if ($username === '') {
+                $errors[] = "Username không được để trống.";
+            } elseif (mb_strlen($username) < 3) {
+                $errors[] = "Username phải có ít nhất 3 ký tự.";
+            }
+
+            if ($email === '') {
+                $errors[] = "Email không được để trống.";
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = "Email không hợp lệ.";
+            }
+
+            if ($std === '') {
+                $errors[] = "Số điện thoại không được để trống.";
+            } elseif (!preg_match('/^[0-9]{9,11}$/', $std)) {
+                $errors[] = "Số điện thoại phải từ 9 đến 11 chữ số.";
+            }
+
+            if ($diachi === '') {
+                $errors[] = "Địa chỉ không được để trống.";
+            }
+
+            if ($password === '') {
+                $errors[] = "Mật khẩu không được để trống.";
+            } elseif (strlen($password) < 6) {
+                $errors[] = "Mật khẩu phải có ít nhất 6 ký tự.";
+            }
+
+            if (empty($errors)) {
+                $userModel = new User();
+
+                $ok = $userModel->register(
+                    $username,
+                    $email,
+                    $std,
+                    $diachi,
+                    $password
+                );
 
                 if ($ok) {
-                    $message = 'Đăng ký admin thành công';
+                    $message = "Đăng ký thành công!";
                 } else {
-                    $message = 'Đăng ký thất bại';
+                    $message = "Đăng ký thất bại!";
                 }
             }
         }
 
-        $this->view('admin/ViewProduct/register', [
-            'message' => $message
-        ]);
+        require_once __DIR__ . '/../views/admin/ViewProduct/register.php';
     }
 
-    public function adminProduct(): void
-    {
-        $this->requireAdmin();
+    public function adminProduct() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
+        if (!isset($_SESSION['user'])) {
+            header("Location: index.php?act=login");
+            exit;
+        }
+
+        $productModel = new Product();
         $keyword = trim($_GET['keyword'] ?? '');
-        $products = $this->productModel->getAllProducts($keyword);
+        $products = $productModel->getAllProducts($keyword);
 
-        $this->view('admin/ViewProduct/adminProduct', [
-            'products' => $products
-        ]);
+        require_once __DIR__ . '/../views/admin/ViewProduct/adminProduct.php';
     }
 
-    public function addProduct(): void
-    {
-        $this->requireAdmin();
+    public function addProduct() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
+        if (!isset($_SESSION['user'])) {
+            header("Location: index.php?act=login");
+            exit;
+        }
+
+        $productModel = new Product();
+        $categories = $productModel->getCategories();
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = trim($_POST['name'] ?? '');
-            $code = trim($_POST['code'] ?? '');
-            $price = (int)($_POST['price'] ?? 0);
-            $quantity = (int)($_POST['quantity'] ?? 0);
-            $status = (int)($_POST['status'] ?? 1);
+            $category_id = (int)($_POST['category_id'] ?? 0);
             $description = trim($_POST['description'] ?? '');
 
             if ($name === '') {
-                $errors[] = 'Tên sản phẩm không được để trống';
+                $errors[] = "Tên sản phẩm không được để trống.";
             }
 
-            if ($code === '') {
-                $errors[] = 'Mã sản phẩm không được để trống';
-            } elseif ($this->productModel->findProductByCode($code)) {
-                $errors[] = 'Mã sản phẩm đã tồn tại';
+            if ($category_id <= 0) {
+                $errors[] = "Vui lòng chọn danh mục.";
             }
 
-            if ($price <= 0) {
-                $errors[] = 'Giá phải lớn hơn 0';
-            }
-
-            if ($quantity < 0) {
-                $errors[] = 'Số lượng không hợp lệ';
+            if ($description === '') {
+                $errors[] = "Mô tả không được để trống.";
             }
 
             if (empty($errors)) {
-                $this->productModel->createProduct([
+                $data = [
                     'name' => $name,
-                    'code' => $code,
-                    'price' => $price,
-                    'quantity' => $quantity,
-                    'status' => $status,
+                    'category_id' => $category_id,
                     'description' => $description
-                ]);
+                ];
 
-                $this->redirect('adminProduct');
+                $ok = $productModel->addProduct($data);
+
+                if ($ok) {
+                    header("Location: index.php?act=adminProduct");
+                    exit;
+                } else {
+                    $errors[] = "Thêm sản phẩm thất bại.";
+                }
             }
         }
 
-        $this->view('admin/add_product', [
-            'errors' => $errors
-        ]);
+        require_once __DIR__ . '/../views/admin/ViewProduct/add_product.php';
     }
 
-    public function editProduct(): void
-    {
-        $this->requireAdmin();
+    public function editProduct() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
-        $id = (int)($_GET['id'] ?? 0);
-        $product = $this->productModel->getProductById($id);
+        if (!isset($_SESSION['user'])) {
+            header("Location: index.php?act=login");
+            exit;
+        }
+
+        $id = $_GET['id'] ?? null;
+
+        if (!$id || !is_numeric($id) || (int)$id <= 0) {
+            echo "ID sản phẩm không hợp lệ!";
+            return;
+        }
+
+        $productModel = new Product();
+        $product = $productModel->getProductById((int)$id);
 
         if (!$product) {
-            $this->redirect('adminProduct');
+            echo "Không tìm thấy sản phẩm cần sửa!";
+            return;
         }
+
+        $categories = $productModel->getCategories();
+        $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = trim($_POST['name'] ?? '');
-            $code = trim($_POST['code'] ?? '');
-            $price = (int)($_POST['price'] ?? 0);
-            $quantity = (int)($_POST['quantity'] ?? 0);
-            $status = (int)($_POST['status'] ?? 1);
+            $category_id = (int)($_POST['category_id'] ?? 0);
             $description = trim($_POST['description'] ?? '');
 
-            $this->productModel->updateProduct($id, [
-                'name' => $name,
-                'code' => $code,
-                'price' => $price,
-                'quantity' => $quantity,
-                'status' => $status,
-                'description' => $description
-            ]);
-
-            $this->redirect('adminProduct');
-        }
-
-        $this->view('admin/editproduct', [
-            'product' => $product
-        ]);
-    }
-
-    public function deleteProduct(): void
-    {
-        $this->requireAdmin();
-
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id > 0) {
-            $this->productModel->deleteProduct($id);
-        }
-
-        $this->redirect('adminProduct');
-    }
-
-    public function detail(): void
-    {
-        $this->requireAdmin();
-
-        $id = (int)($_GET['id'] ?? 0);
-        $product = $this->productModel->getProductById($id);
-
-        if (!$product) {
-            $this->redirect('adminProduct');
-        }
-
-        $this->view('admin/ViewProduct/DetailProduct', [
-            'product' => $product
-        ]);
-    }
-
-    public function ProductUser(): void
-    {
-        $this->requireAdmin();
-
-        $keyword = trim($_GET['keyword'] ?? '');
-        $variants = $this->productModel->getAllVariants($keyword);
-
-        $this->view('admin/ProductUser', [
-            'variants' => $variants
-        ]);
-    }
-
-    public function CateProduct(): void
-    {
-        $this->requireAdmin();
-
-        $variants = $this->productModel->getAllVariants();
-
-        $this->view('admin/ViewProduct/CateProduct', [
-            'variants' => $variants
-        ]);
-    }
-
-    public function addCateProduct(): void
-    {
-        $this->requireAdmin();
-
-        $errors = [];
-        $products = $this->productModel->getSimpleProducts();
-        $colors = $this->productModel->getColors();
-        $sizes = $this->productModel->getSizes();
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $productId = (int)($_POST['product_id'] ?? 0);
-            $colorId = (int)($_POST['color_id'] ?? 0);
-            $sizeId = (int)($_POST['size_id'] ?? 0);
-            $price = (int)($_POST['price'] ?? 0);
-            $quantity = (int)($_POST['quantity'] ?? $_POST['stock'] ?? 0);
-
-            if ($productId <= 0) {
-                $errors[] = 'Vui lòng chọn sản phẩm';
+            if ($name === '') {
+                $errors[] = "Tên sản phẩm không được để trống.";
             }
 
-            if ($colorId <= 0) {
-                $errors[] = 'Vui lòng chọn màu';
+            if ($category_id <= 0) {
+                $errors[] = "Vui lòng chọn danh mục.";
             }
 
-            if ($sizeId <= 0) {
-                $errors[] = 'Vui lòng chọn size';
-            }
-
-            if ($price <= 0) {
-                $errors[] = 'Giá phải lớn hơn 0';
-            }
-
-            if ($quantity < 0) {
-                $errors[] = 'Số lượng không hợp lệ';
-            }
-
-            $imageName = '';
-            if (!empty($_FILES['image']['name'])) {
-                $imageName = time() . '_' . basename($_FILES['image']['name']);
-                $target = __DIR__ . '/../uploads/' . $imageName;
-                @move_uploaded_file($_FILES['image']['tmp_name'], $target);
+            if ($description === '') {
+                $errors[] = "Mô tả không được để trống.";
             }
 
             if (empty($errors)) {
-                $this->productModel->createVariant([
-                    'product_id' => $productId,
-                    'color_id' => $colorId,
-                    'size_id' => $sizeId,
-                    'price' => $price,
-                    'quantity' => $quantity,
-                    'image' => $imageName
-                ]);
+                $data = [
+                    'name' => $name,
+                    'category_id' => $category_id,
+                    'description' => $description
+                ];
 
-                $this->redirect('CateProduct');
-            }
-        }
+                $ok = $productModel->updateProduct((int)$id, $data);
 
-        $this->view('admin/ViewProduct/AddCateProduct', [
-            'products' => $products,
-            'colors' => $colors,
-            'sizes' => $sizes,
-            'errors' => $errors
-        ]);
-    }
-
-    public function editCateProduct(): void
-    {
-        $this->requireAdmin();
-
-        $id = (int)($_GET['id'] ?? 0);
-        $variant = $this->productModel->getVariantById($id);
-
-        if (!$variant) {
-            $this->redirect('CateProduct');
-        }
-
-        $products = $this->productModel->getSimpleProducts();
-        $colors = $this->productModel->getColors();
-        $sizes = $this->productModel->getSizes();
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $productId = (int)($_POST['product_id'] ?? 0);
-            $colorId = (int)($_POST['color_id'] ?? 0);
-            $sizeId = (int)($_POST['size_id'] ?? 0);
-            $price = (int)($_POST['price'] ?? 0);
-            $quantity = (int)($_POST['quantity'] ?? $_POST['stock'] ?? 0);
-
-            $imageName = $variant['image'] ?? '';
-            if (!empty($_FILES['image']['name'])) {
-                $imageName = time() . '_' . basename($_FILES['image']['name']);
-                $target = __DIR__ . '/../uploads/' . $imageName;
-                @move_uploaded_file($_FILES['image']['tmp_name'], $target);
+                if ($ok) {
+                    header("Location: index.php?act=adminProduct");
+                    exit;
+                } else {
+                    $errors[] = "Cập nhật sản phẩm thất bại.";
+                }
             }
 
-            $this->productModel->updateVariant($id, [
-                'product_id' => $productId,
-                'color_id' => $colorId,
-                'size_id' => $sizeId,
-                'price' => $price,
-                'quantity' => $quantity,
-                'image' => $imageName
-            ]);
-
-            $this->redirect('CateProduct');
+            $product['name'] = $name;
+            $product['category_id'] = $category_id;
+            $product['description'] = $description;
         }
 
-        $this->view('admin/ViewProduct/EditCateProduct', [
-            'variant' => $variant,
-            'products' => $products,
-            'colors' => $colors,
-            'sizes' => $sizes
-        ]);
+        require_once __DIR__ . '/../views/admin/ViewProduct/editproduct.php';
     }
 
-    public function deleteCateProduct(): void
-    {
-        $this->requireAdmin();
+    public function deleteProduct() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
 
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id > 0) {
-            $this->productModel->deleteVariant($id);
+    if (!isset($_SESSION['user'])) {
+        header("Location: index.php?act=login");
+        exit;
+    }
+
+    $id = $_GET['id'] ?? null;
+
+    if (!$id || !is_numeric($id) || (int)$id <= 0) {
+        echo "ID sản phẩm không hợp lệ!";
+        return;
+    }
+
+    $productModel = new Product();
+    $product = $productModel->getProductById((int)$id);
+
+    if (!$product) {
+        echo "Không tìm thấy sản phẩm để xóa!";
+        return;
+    }
+
+    if ($productModel->hasOrder((int)$id)) {
+        echo "Không thể xóa vì sản phẩm đã có đơn hàng!";
+        return;
+    }
+
+    $ok = $productModel->deleteProductSafe((int)$id);
+
+    if ($ok) {
+        header("Location: index.php?act=adminProduct");
+        exit;
+    }
+
+    echo "Xóa sản phẩm thất bại!";
+}
+
+    public function users() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
 
-        $this->redirect('CateProduct');
+        if (!isset($_SESSION['user'])) {
+            header("Location: index.php?act=login");
+            exit;
+        }
+
+        $userModel = new User();
+        $users = $userModel->getAll();
+
+        require_once __DIR__ . '/../views/admin/User/users.php';
     }
 
-    public function users(): void
-    {
-        $this->requireAdmin();
+    public function deleteUser() {
+        $id = $_GET['id'] ?? null;
 
-        $users = $this->userModel->getAll();
+        if (!$id || !is_numeric($id) || (int)$id <= 0) {
+            echo "ID người dùng không hợp lệ!";
+            return;
+        }
 
-        $this->view('admin/User/users', [
-            'users' => $users
-        ]);
-    }
-
-    public function editUser(): void
-    {
-        $this->requireAdmin();
-
-        $id = (int)($_GET['id'] ?? 0);
-        $user = $this->userModel->findById($id);
+        $userModel = new User();
+        $user = $userModel->findById((int)$id);
 
         if (!$user) {
-            $this->redirect('users');
+            echo "Không tìm thấy người dùng để xóa!";
+            return;
         }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->userModel->update($id, [
-                'username' => trim($_POST['username'] ?? ''),
-                'email' => trim($_POST['email'] ?? ''),
-                'std' => trim($_POST['std'] ?? ''),
-                'diachi' => trim($_POST['diachi'] ?? '')
-            ]);
+        $userModel->delete((int)$id);
 
-            $this->redirect('users');
-        }
-
-        $this->view('admin/User/EditUser', [
-            'user' => $user
-        ]);
+        header("Location: index.php?act=users");
+        exit;
     }
 
-    public function deleteUser(): void
-    {
-        $this->requireAdmin();
+    public function editUser() {
+        $id = $_GET['id'] ?? null;
 
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id > 0) {
-            $this->userModel->delete($id);
+        if (!$id || !is_numeric($id) || (int)$id <= 0) {
+            echo "ID người dùng không hợp lệ!";
+            return;
         }
 
-        $this->redirect('users');
+        $userModel = new User();
+        $errors = [];
+
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $username = trim($_POST['username'] ?? '');
+            $email    = trim($_POST['email'] ?? '');
+            $std      = trim($_POST['std'] ?? '');
+            $diachi   = trim($_POST['diachi'] ?? '');
+
+            if ($username === '') {
+                $errors[] = "Username không được để trống.";
+            }
+
+            if ($email === '') {
+                $errors[] = "Email không được để trống.";
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = "Email không hợp lệ.";
+            }
+
+            if ($std === '') {
+                $errors[] = "Số điện thoại không được để trống.";
+            } elseif (!preg_match('/^[0-9]{9,11}$/', $std)) {
+                $errors[] = "Số điện thoại phải từ 9 đến 11 chữ số.";
+            }
+
+            if ($diachi === '') {
+                $errors[] = "Địa chỉ không được để trống.";
+            }
+
+            if (empty($errors)) {
+                $userModel->update((int)$id, [
+                    'username' => $username,
+                    'email'    => $email,
+                    'std'      => $std,
+                    'diachi'   => $diachi
+                ]);
+
+                header("Location: index.php?act=users");
+                exit;
+            }
+        }
+
+        $user = $userModel->findById((int)$id);
+
+        if (!$user) {
+            echo "Không tìm thấy người dùng!";
+            return;
+        }
+
+        require_once __DIR__ . '/../views/admin/User/EditUser.php';
     }
 
-        public function donhang()
-    {
+    public function CateProduct() {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
 
-        if (!isset($_SESSION['user']) || ($_SESSION['role'] ?? '') !== 'admin') {
+        if (!isset($_SESSION['user'])) {
             header("Location: index.php?act=login");
             exit;
         }
 
         $productModel = new Product();
-        $orders = $productModel->getAllOrders();
+        $variants = $productModel->getAllVariants();
 
-        require_once __DIR__ . '/../views/admin/Order/donhang.php';
+        require_once __DIR__ . '/../views/admin/ViewProduct/CateProduct.php';
     }
 
-    public function updateOrderStatus()
-    {
+    public function addCateProduct() {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
 
-        if (!isset($_SESSION['user']) || ($_SESSION['role'] ?? '') !== 'admin') {
+        if (!isset($_SESSION['user'])) {
             header("Location: index.php?act=login");
             exit;
         }
 
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header("Location: index.php?act=donhang");
+        $productModel = new Product();
+        $errors = [];
+
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $product_id = $_POST['product_id'] ?? '';
+            $color_id   = $_POST['color_id'] ?? '';
+            $size_id    = $_POST['size_id'] ?? '';
+            $price      = $_POST['price'] ?? '';
+            $stock      = $_POST['stock'] ?? '';
+
+            if ($product_id === '' || !is_numeric($product_id) || (int)$product_id <= 0) {
+                $errors[] = "Vui lòng chọn sản phẩm.";
+            }
+
+            if ($color_id === '' || !is_numeric($color_id) || (int)$color_id <= 0) {
+                $errors[] = "Vui lòng chọn màu sắc.";
+            }
+
+            if ($size_id === '' || !is_numeric($size_id) || (int)$size_id <= 0) {
+                $errors[] = "Vui lòng chọn kích thước.";
+            }
+
+            if ($price === '' || !is_numeric($price) || (int)$price < 0) {
+                $errors[] = "Giá sản phẩm phải là số và không được âm.";
+            }
+
+            if ($stock === '' || !is_numeric($stock) || (int)$stock < 0) {
+                $errors[] = "Tồn kho phải là số và không được âm.";
+            }
+
+            $imageName = '';
+
+            if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
+                $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+                $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+
+                if (!in_array($ext, $allowedExt)) {
+                    $errors[] = "Ảnh chỉ được phép là jpg, jpeg, png, webp.";
+                }
+
+                if ($_FILES['image']['size'] > 2 * 1024 * 1024) {
+                    $errors[] = "Ảnh không được lớn hơn 2MB.";
+                }
+
+                if (empty($errors)) {
+                    $imageName = time() . '_' . basename($_FILES['image']['name']);
+                    move_uploaded_file($_FILES['image']['tmp_name'], 'uploads/' . $imageName);
+                }
+            } else {
+                $errors[] = "Vui lòng chọn ảnh sản phẩm.";
+            }
+
+            if (empty($errors)) {
+                $data = [
+                    'product_id' => (int)$product_id,
+                    'color_id'   => (int)$color_id,
+                    'size_id'    => (int)$size_id,
+                    'image'      => $imageName,
+                    'price'      => (int)$price,
+                    'stock'      => (int)$stock
+                ];
+
+                $productModel->addVariant($data);
+                header("Location: index.php?act=CateProduct");
+                exit;
+            }
+        }
+
+        $products = $productModel->getProducts();
+        $colors   = $productModel->getColors();
+        $sizes    = $productModel->getSizes();
+
+        require_once __DIR__ . '/../views/admin/ViewProduct/AddCateProduct.php';
+    }
+
+    public function editCateProduct() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['user'])) {
+            header("Location: index.php?act=login");
             exit;
         }
 
-        $id = (int)($_POST['id'] ?? 0);
-        $status = trim($_POST['status'] ?? '');
-        $paymentStatus = trim($_POST['payment_status'] ?? '');
+        $id = $_GET['id'] ?? null;
 
-        $validStatus = ['pending', 'completed', 'cancelled'];
-        $validPaymentStatus = ['unpaid', 'paid'];
-
-        if ($id <= 0 || !in_array($status, $validStatus, true) || !in_array($paymentStatus, $validPaymentStatus, true)) {
-            echo "Dữ liệu cập nhật trạng thái không hợp lệ!";
+        if (!$id || !is_numeric($id) || (int)$id <= 0) {
+            echo "ID danh mục sản phẩm không hợp lệ!";
             return;
         }
 
         $productModel = new Product();
-        $order = $productModel->getOrderById($id);
+        $errors = [];
 
-        if (!$order) {
-            echo "Không tìm thấy đơn hàng!";
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $product_id = $_POST['product_id'] ?? '';
+            $color_id   = $_POST['color_id'] ?? '';
+            $size_id    = $_POST['size_id'] ?? '';
+            $price      = $_POST['price'] ?? '';
+            $stock      = $_POST['stock'] ?? '';
+            $old_image  = $_POST['old_image'] ?? '';
+
+            if ($product_id === '' || !is_numeric($product_id) || (int)$product_id <= 0) {
+                $errors[] = "Vui lòng chọn sản phẩm.";
+            }
+
+            if ($color_id === '' || !is_numeric($color_id) || (int)$color_id <= 0) {
+                $errors[] = "Vui lòng chọn màu sắc.";
+            }
+
+            if ($size_id === '' || !is_numeric($size_id) || (int)$size_id <= 0) {
+                $errors[] = "Vui lòng chọn kích thước.";
+            }
+
+            if ($price === '' || !is_numeric($price) || (int)$price < 0) {
+                $errors[] = "Giá sản phẩm phải là số và không được âm.";
+            }
+
+            if ($stock === '' || !is_numeric($stock) || (int)$stock < 0) {
+                $errors[] = "Tồn kho phải là số và không được âm.";
+            }
+
+            $imageName = $old_image;
+
+            if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
+                $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+                $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+
+                if (!in_array($ext, $allowedExt)) {
+                    $errors[] = "Ảnh chỉ được phép là jpg, jpeg, png, webp.";
+                }
+
+                if ($_FILES['image']['size'] > 2 * 1024 * 1024) {
+                    $errors[] = "Ảnh không được lớn hơn 2MB.";
+                }
+
+                if (empty($errors)) {
+                    $imageName = time() . '_' . basename($_FILES['image']['name']);
+                    move_uploaded_file($_FILES['image']['tmp_name'], 'uploads/' . $imageName);
+                }
+            }
+
+            if (empty($errors)) {
+                $data = [
+                    'product_id' => (int)$product_id,
+                    'color_id'   => (int)$color_id,
+                    'size_id'    => (int)$size_id,
+                    'image'      => $imageName,
+                    'price'      => (int)$price,
+                    'stock'      => (int)$stock
+                ];
+
+                $productModel->updateVariant((int)$id, $data);
+                header("Location: index.php?act=CateProduct");
+                exit;
+            }
+        }
+
+        $variant = $productModel->getVariantById((int)$id);
+
+        if (!$variant) {
+            echo "Không tìm thấy biến thể hoặc biến thể này đã bị ẩn!";
             return;
         }
 
-        $productModel->updateOrderStatusByAdmin($id, $status, $paymentStatus);
+        $products = $productModel->getProducts();
+        $colors   = $productModel->getColors();
+        $sizes    = $productModel->getSizes();
 
+        require_once __DIR__ . '/../views/admin/ViewProduct/EditCateProduct.php';
+    }
+
+    public function deleteCateProduct() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user'])) {
+        header("Location: index.php?act=login");
+        exit;
+    }
+
+    $id = $_GET['id'] ?? null;
+
+    if (!$id || !is_numeric($id) || (int)$id <= 0) {
+        echo "ID danh mục sản phẩm không hợp lệ!";
+        return;
+    }
+
+    $productModel = new Product();
+
+    // Lấy thông tin variant còn hoạt động
+    $variant = $productModel->getVariantById((int)$id);
+
+    if (!$variant) {
+        echo "Không tìm thấy dữ liệu để ẩn!";
+        return;
+    }
+
+    $ok = $productModel->deleteVariant((int)$id);
+
+    if ($ok) {
+        header("Location: index.php?act=CateProduct");
+        exit;
+    }
+
+    echo "Ẩn biến thể sản phẩm thất bại!";
+    }
+
+    public function donhang() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user'])) {
+        header("Location: index.php?act=login");
+        exit;
+    }
+
+    $productModel = new Product();
+    $orders = $productModel->getAllOrders();
+
+    require_once __DIR__ . '/../views/admin/Order/donhang.php';
+}
+
+public function detailOrder()
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user'])) {
+        header("Location: index.php?act=login");
+        exit;
+    }
+
+    $orderId = (int)($_GET['id'] ?? 0);
+
+    if ($orderId <= 0) {
+        echo "ID đơn hàng không hợp lệ!";
+        return;
+    }
+
+    $productModel = new Product();
+    $order = $productModel->getOrderById($orderId);
+
+    if (!$order) {
+        echo "Không tìm thấy đơn hàng!";
+        return;
+    }
+
+    $orderDetails = $productModel->getOrderDetails($orderId);
+
+    require_once __DIR__ . '/../views/admin/Order/detailOrder.php';
+}
+
+public function thongke()
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user'])) {
+        header("Location: index.php?act=login");
+        exit;
+    }
+
+    $productModel = new Product();
+    $thongke = $productModel->getThongKeDoanhThu();
+
+    require_once __DIR__ . '/../views/admin/Order/thongke.php';
+}
+
+public function updateOrderStatus() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user'])) {
+        header("Location: index.php?act=login");
+        exit;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         header("Location: index.php?act=donhang");
         exit;
+    }
+
+    $orderId = (int)($_POST['order_id'] ?? 0);
+    $status = trim($_POST['status'] ?? '');
+
+    $allowStatus = [
+        'cho_xac_nhan',
+        'dang_lay_hang',
+        'dang_van_chuyen',
+        'da_van_chuyen',
+        'hoan_thanh',
+        'da_huy'
+    ];
+
+    if ($orderId <= 0 || !in_array($status, $allowStatus, true)) {
+        echo "Dữ liệu cập nhật không hợp lệ!";
+        return;
+    }
+
+    $productModel = new Product();
+    $order = $productModel->getOrderById($orderId);
+
+    if (!$order) {
+        echo "Không tìm thấy đơn hàng!";
+        return;
+    }
+
+    // không cho hoàn thành quay về chờ xác nhận
+    if ($order['status'] === 'hoan_thanh' && $status === 'cho_xac_nhan') {
+        echo "Đơn hàng đã hoàn thành, không thể chuyển lại về chờ xác nhận!";
+        return;
+    }
+
+    // nếu đã hoàn thành thì không cho đổi về các trạng thái trước
+    if ($order['status'] === 'hoan_thanh' && $status !== 'hoan_thanh') {
+        echo "Đơn hàng đã hoàn thành, không thể đổi trạng thái!";
+        return;
+    }
+
+    $productModel->updateOrderStatusById($orderId, $status);
+
+    header("Location: index.php?act=donhang");
+    exit;
     }
 }
