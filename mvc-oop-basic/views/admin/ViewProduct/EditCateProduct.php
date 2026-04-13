@@ -1,4 +1,3 @@
-<?php session_start(); ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -156,7 +155,15 @@
             <h3><i class="bi bi-pencil-square me-2"></i>Cập nhật sản phẩm</h3>
             <p>Chỉnh sửa thông tin hiện tại của biến thể sản phẩm</p>
         </div>
-
+    <?php if (!empty($errors)): ?>
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                <?php foreach ($errors as $error): ?>
+                    <li><?= htmlspecialchars($error) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
         <div class="form-body">
             <form method="POST" enctype="multipart/form-data">
                 <div class="section-title">

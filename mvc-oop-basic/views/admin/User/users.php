@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -13,7 +12,7 @@
 <div class="container mt-4">
     <h3>👤 Quản lý người dùng</h3>
 
-    <a href="?act=/" class="btn btn-secondary mb-3">← Quay lại</a>
+    <a href="?act=adminProduct" class="btn btn-secondary mb-3">← Quay lại</a>
 
     <table class="table table-bordered table-hover">
         <thead>

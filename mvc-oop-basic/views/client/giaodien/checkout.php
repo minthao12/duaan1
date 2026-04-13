@@ -92,12 +92,12 @@
 
                     <?php foreach ($checkoutItems as $item): ?>
                         <div class="d-flex align-items-center border-bottom py-3">
-                            <img src="/Duan1/mvc-oop-basic/uploads/<?= htmlspecialchars($item['image']) ?>" width="70" class="rounded me-3">
+                            <img src="/Duan1/mvc-oop-basic/uploads/<?= htmlspecialchars($item['image'] ?? '') ?>" width="70" class="rounded me-3">
                             <div class="flex-grow-1">
                                 <h6 class="mb-1"><?= htmlspecialchars($item['product_name']) ?></h6>
                                 <div class="text-muted small">
-                                    Màu: <?= htmlspecialchars($item['color_name']) ?> |
-                                    Size: <?= htmlspecialchars($item['size_name']) ?>
+                                    Màu: <?= htmlspecialchars($item['color_name'] ?? '') ?> |
+                                    Size: <?= htmlspecialchars($item['size_name'] ?? '') ?>
                                 </div>
                                 <div class="small">SL: <?= (int)$item['quantity'] ?></div>
                             </div>

@@ -3,6 +3,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+$product = $product ?? [];
+$categories = $categories ?? [];
 $errors = $errors ?? [];
 
 function e($value)
@@ -14,7 +16,7 @@ function e($value)
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Thêm sản phẩm</title>
+    <title>Sửa sản phẩm</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -23,7 +25,7 @@ function e($value)
 <div class="container py-5">
     <div class="card shadow border-0 rounded-4 p-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="mb-0">Thêm sản phẩm</h3>
+            <h3 class="mb-0">Sửa sản phẩm</h3>
             <a href="?act=adminProduct" class="btn btn-outline-secondary">← Quay lại</a>
         </div>
 
@@ -41,39 +43,29 @@ function e($value)
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Tên sản phẩm</label>
-                    <input type="text" name="name" class="form-control" value="<?= e($_POST['name'] ?? '') ?>">
+                    <input type="text" name="name" class="form-control" value="<?= e($product['name'] ?? '') ?>">
                 </div>
 
                 <div class="col-md-6">
-                    <label class="form-label">Mã sản phẩm</label>
-                    <input type="text" name="code" class="form-control" value="<?= e($_POST['code'] ?? '') ?>">
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Giá</label>
-                    <input type="number" name="price" class="form-control" value="<?= e($_POST['price'] ?? '') ?>">
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Số lượng</label>
-                    <input type="number" name="quantity" class="form-control" value="<?= e($_POST['quantity'] ?? '') ?>">
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Trạng thái</label>
-                    <select name="status" class="form-select">
-                        <option value="1">Còn bán</option>
-                        <option value="0">Hết hàng</option>
+                    <label class="form-label">Danh mục</label>
+                    <select name="category_id" class="form-select">
+                        <option value="">-- Chọn danh mục --</option>
+                        <?php foreach ($categories as $cate): ?>
+                            <option value="<?= (int)$cate['id'] ?>"
+                                <?= (isset($product['category_id']) && (int)$product['category_id'] === (int)$cate['id']) ? 'selected' : '' ?>>
+                                <?= e($cate['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
                 <div class="col-12">
                     <label class="form-label">Mô tả</label>
-                    <textarea name="description" class="form-control" rows="5"><?= e($_POST['description'] ?? '') ?></textarea>
+                    <textarea name="description" class="form-control" rows="5"><?= e($product['description'] ?? '') ?></textarea>
                 </div>
             </div>
 
-            <button class="btn btn-primary mt-4">Thêm sản phẩm</button>
+            <button class="btn btn-warning mt-4">Cập nhật sản phẩm</button>
         </form>
     </div>
 </div>

@@ -3,9 +3,12 @@
 <?php
 function hienThiTrangThaiDonHang($status) {
     return match ($status) {
-        'pending' => 'Chờ xác nhận',
-        'completed' => 'Hoàn thành',
-        'cancelled' => 'Đã hủy',
+        'cho_xac_nhan'    => 'Chờ xác nhận',
+        'dang_lay_hang'   => 'Đang lấy hàng',
+        'dang_van_chuyen' => 'Đang vận chuyển',
+        'da_van_chuyen'   => 'Đã vận chuyển',
+        'hoan_thanh'      => 'Hoàn thành',
+        'da_huy'          => 'Đã hủy',
         default => 'Không xác định',
     };
 }
@@ -108,11 +111,11 @@ function hienThiTrangThaiThanhToan($paymentStatus) {
             <h4 class="text-white text-center mb-4">HDTT</h4>
 
             <a href="?act=adminProduct" class="<?= ($currentAct == 'adminProduct') ? 'active' : '' ?>">
-                <i class="bi bi-box"></i> Sản phẩm
+                <i class="bi bi-box"></i> Danh mục Sản phẩm
             </a>
 
             <a href="?act=CateProduct" class="<?= ($currentAct == 'CateProduct') ? 'active' : '' ?>">
-                <i class="bi bi-bag"></i> Danh mục sản phẩm
+                <i class="bi bi-bag"></i> sản phẩm
             </a>
 
             <a href="?act=users" class="<?= ($currentAct == 'users') ? 'active' : '' ?>">
@@ -121,6 +124,9 @@ function hienThiTrangThaiThanhToan($paymentStatus) {
 
             <a href="?act=donhang" class="<?= ($currentAct == 'donhang') ? 'active' : '' ?>">
                 <i class="bi bi-receipt"></i> Đơn hàng
+            </a>
+            <a href="?act=thongke" class="<?= ($currentAct == 'thongke') ? 'active' : '' ?>">
+                <i class="bi bi-bar-chart"></i> Thống kê
             </a>
         </div>
 
@@ -151,6 +157,7 @@ function hienThiTrangThaiThanhToan($paymentStatus) {
                                         <th>Trạng thái hiện tại</th>
                                         <th>Thanh toán hiện tại</th>
                                         <th>Cập nhật</th>
+                                        <th>Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -182,34 +189,25 @@ function hienThiTrangThaiThanhToan($paymentStatus) {
                                                 </span>
                                             </td>
                                             <td style="min-width: 220px;">
-                                                <form method="POST" action="index.php?act=updateOrderStatus" class="d-flex flex-column gap-2">
-                                                    <input type="hidden" name="id" value="<?= $order['id'] ?>">
+                                                <form method="POST" action="index.php?act=updateOrderStatus" class="d-flex gap-2">
+                                                    <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
 
                                                     <select name="status" class="form-select form-select-sm">
-                                                        <option value="pending" <?= $order['status'] == 'pending' ? 'selected' : '' ?>>
-                                                            Chờ xác nhận
-                                                        </option>
-                                                        <option value="completed" <?= $order['status'] == 'completed' ? 'selected' : '' ?>>
-                                                            Hoàn thành
-                                                        </option>
-                                                        <option value="cancelled" <?= $order['status'] == 'cancelled' ? 'selected' : '' ?>>
-                                                            Đã hủy
-                                                        </option>
+                                                        <option value="cho_xac_nhan" <?= $order['status'] === 'cho_xac_nhan' ? 'selected' : '' ?>>Chờ xác nhận</option>
+                                                        <option value="dang_lay_hang" <?= $order['status'] === 'dang_lay_hang' ? 'selected' : '' ?>>Đang lấy hàng</option>
+                                                        <option value="dang_van_chuyen" <?= $order['status'] === 'dang_van_chuyen' ? 'selected' : '' ?>>Đang vận chuyển</option>
+                                                        <option value="da_van_chuyen" <?= $order['status'] === 'da_van_chuyen' ? 'selected' : '' ?>>Đã vận chuyển</option>
+                                                        <option value="hoan_thanh" <?= $order['status'] === 'hoan_thanh' ? 'selected' : '' ?>>Hoàn thành</option>
+                                                        <option value="da_huy" <?= $order['status'] === 'da_huy' ? 'selected' : '' ?>>Đã hủy</option>
                                                     </select>
 
-                                                    <select name="payment_status" class="form-select form-select-sm">
-                                                        <option value="unpaid" <?= $order['payment_status'] == 'unpaid' ? 'selected' : '' ?>>
-                                                            Chưa thanh toán
-                                                        </option>
-                                                        <option value="paid" <?= $order['payment_status'] == 'paid' ? 'selected' : '' ?>>
-                                                            Đã thanh toán
-                                                        </option>
-                                                    </select>
-
-                                                    <button class="btn btn-primary btn-sm w-100">
-                                                        Lưu cập nhật
-                                                    </button>
+                                                    <button type="submit" class="btn btn-primary btn-sm">Cập nhật</button>
                                                 </form>
+                                            </td>
+                                            <td>
+                                                <a href="index.php?act=detailOrder&id=<?= $order['id'] ?>" class="btn btn-info btn-sm">
+                                                    Xem chi tiết
+                                                </a>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
