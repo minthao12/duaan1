@@ -5,7 +5,18 @@ require_once __DIR__ . '/../models/User.php';
 
 class admincontroller {
 
+    private function requireAdmin() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        if (!isset($_SESSION['user']) || ($_SESSION['role'] ?? '') !== 'admin') {
+            header("Location: index.php?act=login");
+            exit;
+        }
+    }
+
     public function dashboard() {
+        $this->requireAdmin();
         $productModel = new Product();
         $keyword = trim($_GET['keyword'] ?? '');
         $products = $productModel->getAllProducts($keyword);
@@ -18,6 +29,7 @@ class admincontroller {
     }
 
     public function detail() {
+        $this->requireAdmin();
         $id = $_GET['id'] ?? null;
 
         if (!$id || !is_numeric($id) || (int)$id <= 0) {
@@ -68,11 +80,17 @@ class admincontroller {
                 $user = $userModel->login($username, $password);
 
                 if ($user) {
+                    session_regenerate_id(true);
+
                     $_SESSION['user'] = $user['username'];
                     $_SESSION['role'] = $user['role'];
                     $_SESSION['user_id'] = $user['id'];
 
-                    header("Location: index.php?act=adminProduct");
+                    if ($user['role'] === 'admin') {
+                        header("Location: index.php?act=adminProduct");
+                    } else {
+                        header("Location: index.php?act=giaodien");
+                    }
                     exit;
                 } else {
                     $error = "Sai tài khoản hoặc mật khẩu!";
@@ -145,14 +163,7 @@ class admincontroller {
     }
 
     public function adminProduct() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (!isset($_SESSION['user'])) {
-            header("Location: index.php?act=login");
-            exit;
-        }
+        $this->requireAdmin();
 
         $productModel = new Product();
         $keyword = trim($_GET['keyword'] ?? '');
@@ -162,14 +173,7 @@ class admincontroller {
     }
 
     public function addProduct() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (!isset($_SESSION['user'])) {
-            header("Location: index.php?act=login");
-            exit;
-        }
+        $this->requireAdmin();
 
         $productModel = new Product();
         $categories = $productModel->getCategories();
@@ -214,14 +218,7 @@ class admincontroller {
     }
 
     public function editProduct() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (!isset($_SESSION['user'])) {
-            header("Location: index.php?act=login");
-            exit;
-        }
+        $this->requireAdmin();
 
         $id = $_GET['id'] ?? null;
 
@@ -284,14 +281,7 @@ class admincontroller {
     }
 
     public function deleteProduct() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    if (!isset($_SESSION['user'])) {
-        header("Location: index.php?act=login");
-        exit;
-    }
+    $this->requireAdmin();
 
     $id = $_GET['id'] ?? null;
 
@@ -324,14 +314,7 @@ class admincontroller {
 }
 
     public function users() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (!isset($_SESSION['user'])) {
-            header("Location: index.php?act=login");
-            exit;
-        }
+        $this->requireAdmin();
 
         $userModel = new User();
         $users = $userModel->getAll();
@@ -377,6 +360,7 @@ class admincontroller {
             $email    = trim($_POST['email'] ?? '');
             $std      = trim($_POST['std'] ?? '');
             $diachi   = trim($_POST['diachi'] ?? '');
+            $role     = trim($_POST['role'] ?? 'user');
 
             if ($username === '') {
                 $errors[] = "Username không được để trống.";
@@ -398,12 +382,22 @@ class admincontroller {
                 $errors[] = "Địa chỉ không được để trống.";
             }
 
+            if (!in_array($role, ['user', 'admin'], true)) {
+                $errors[] = "Vai trò không hợp lệ.";
+            }
+
+            // Không cho admin tự hạ vai trò chính mình
+            if ((int)$id === (int)($_SESSION['user_id'] ?? 0) && $role !== 'admin') {
+                $errors[] = "Bạn không thể tự hạ vai trò của chính mình.";
+            }
+
             if (empty($errors)) {
                 $userModel->update((int)$id, [
                     'username' => $username,
                     'email'    => $email,
                     'std'      => $std,
-                    'diachi'   => $diachi
+                    'diachi'   => $diachi,
+                    'role'     => $role,
                 ]);
 
                 header("Location: index.php?act=users");
@@ -422,14 +416,7 @@ class admincontroller {
     }
 
     public function CateProduct() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (!isset($_SESSION['user'])) {
-            header("Location: index.php?act=login");
-            exit;
-        }
+        $this->requireAdmin();
 
         $productModel = new Product();
         $variants = $productModel->getAllVariants();
@@ -438,14 +425,7 @@ class admincontroller {
     }
 
     public function addCateProduct() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (!isset($_SESSION['user'])) {
-            header("Location: index.php?act=login");
-            exit;
-        }
+        $this->requireAdmin();
 
         $productModel = new Product();
         $errors = [];
@@ -491,8 +471,13 @@ class admincontroller {
                     $errors[] = "Ảnh không được lớn hơn 2MB.";
                 }
 
+                if (@getimagesize($_FILES['image']['tmp_name']) === false) {
+                    $errors[] = "File không phải ảnh hợp lệ.";
+                }
+
                 if (empty($errors)) {
-                    $imageName = time() . '_' . basename($_FILES['image']['name']);
+                    $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '', pathinfo($_FILES['image']['name'], PATHINFO_FILENAME));
+                    $imageName = time() . '_' . ($safeName ?: 'img') . '.' . $ext;
                     move_uploaded_file($_FILES['image']['tmp_name'], 'uploads/' . $imageName);
                 }
             } else {
@@ -523,14 +508,7 @@ class admincontroller {
     }
 
     public function editCateProduct() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (!isset($_SESSION['user'])) {
-            header("Location: index.php?act=login");
-            exit;
-        }
+        $this->requireAdmin();
 
         $id = $_GET['id'] ?? null;
 
@@ -543,15 +521,22 @@ class admincontroller {
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $product_id = $_POST['product_id'] ?? '';
-            $color_id   = $_POST['color_id'] ?? '';
-            $size_id    = $_POST['size_id'] ?? '';
-            $price      = $_POST['price'] ?? '';
-            $stock      = $_POST['stock'] ?? '';
-            $old_image  = $_POST['old_image'] ?? '';
+            $product_id   = $_POST['product_id'] ?? '';
+            $product_name = trim($_POST['product_name'] ?? '');
+            $color_id     = $_POST['color_id'] ?? '';
+            $size_id      = $_POST['size_id'] ?? '';
+            $price        = $_POST['price'] ?? '';
+            $stock        = $_POST['stock'] ?? '';
+            $old_image    = $_POST['old_image'] ?? '';
 
             if ($product_id === '' || !is_numeric($product_id) || (int)$product_id <= 0) {
-                $errors[] = "Vui lòng chọn sản phẩm.";
+                $errors[] = "Sản phẩm không hợp lệ.";
+            }
+
+            if ($product_name === '') {
+                $errors[] = "Tên sản phẩm không được để trống.";
+            } elseif (mb_strlen($product_name) > 255) {
+                $errors[] = "Tên sản phẩm không được quá 255 ký tự.";
             }
 
             if ($color_id === '' || !is_numeric($color_id) || (int)$color_id <= 0) {
@@ -584,8 +569,13 @@ class admincontroller {
                     $errors[] = "Ảnh không được lớn hơn 2MB.";
                 }
 
+                if (@getimagesize($_FILES['image']['tmp_name']) === false) {
+                    $errors[] = "File không phải ảnh hợp lệ.";
+                }
+
                 if (empty($errors)) {
-                    $imageName = time() . '_' . basename($_FILES['image']['name']);
+                    $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '', pathinfo($_FILES['image']['name'], PATHINFO_FILENAME));
+                    $imageName = time() . '_' . ($safeName ?: 'img') . '.' . $ext;
                     move_uploaded_file($_FILES['image']['tmp_name'], 'uploads/' . $imageName);
                 }
             }
@@ -601,6 +591,8 @@ class admincontroller {
                 ];
 
                 $productModel->updateVariant((int)$id, $data);
+                $productModel->updateProductName((int)$product_id, $product_name);
+
                 header("Location: index.php?act=CateProduct");
                 exit;
             }
@@ -621,14 +613,7 @@ class admincontroller {
     }
 
     public function deleteCateProduct() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    if (!isset($_SESSION['user'])) {
-        header("Location: index.php?act=login");
-        exit;
-    }
+    $this->requireAdmin();
 
     $id = $_GET['id'] ?? null;
 
@@ -658,14 +643,7 @@ class admincontroller {
     }
 
     public function donhang() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    if (!isset($_SESSION['user'])) {
-        header("Location: index.php?act=login");
-        exit;
-    }
+    $this->requireAdmin();
 
     $productModel = new Product();
     $orders = $productModel->getAllOrders();
@@ -675,14 +653,7 @@ class admincontroller {
 
 public function detailOrder()
 {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    if (!isset($_SESSION['user'])) {
-        header("Location: index.php?act=login");
-        exit;
-    }
+    $this->requireAdmin();
 
     $orderId = (int)($_GET['id'] ?? 0);
 
@@ -706,14 +677,7 @@ public function detailOrder()
 
 public function thongke()
 {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    if (!isset($_SESSION['user'])) {
-        header("Location: index.php?act=login");
-        exit;
-    }
+    $this->requireAdmin();
 
     $productModel = new Product();
     $thongke = $productModel->getThongKeDoanhThu();
@@ -721,35 +685,13 @@ public function thongke()
     require_once __DIR__ . '/../views/admin/Order/thongke.php';
 }
 
-public function updateOrderStatus() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+public function editOrder() {
+    $this->requireAdmin();
 
-    if (!isset($_SESSION['user'])) {
-        header("Location: index.php?act=login");
-        exit;
-    }
+    $orderId = (int)($_GET['id'] ?? 0);
 
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        header("Location: index.php?act=donhang");
-        exit;
-    }
-
-    $orderId = (int)($_POST['order_id'] ?? 0);
-    $status = trim($_POST['status'] ?? '');
-
-    $allowStatus = [
-        'cho_xac_nhan',
-        'dang_lay_hang',
-        'dang_van_chuyen',
-        'da_van_chuyen',
-        'hoan_thanh',
-        'da_huy'
-    ];
-
-    if ($orderId <= 0 || !in_array($status, $allowStatus, true)) {
-        echo "Dữ liệu cập nhật không hợp lệ!";
+    if ($orderId <= 0) {
+        echo "ID đơn hàng không hợp lệ!";
         return;
     }
 
@@ -761,20 +703,255 @@ public function updateOrderStatus() {
         return;
     }
 
-    // không cho hoàn thành quay về chờ xác nhận
-    if ($order['status'] === 'hoan_thanh' && $status === 'cho_xac_nhan') {
-        echo "Đơn hàng đã hoàn thành, không thể chuyển lại về chờ xác nhận!";
-        return;
+    $errors = [];
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $receiverName    = trim($_POST['receiver_name'] ?? '');
+        $receiverPhone   = trim($_POST['receiver_phone'] ?? '');
+        $receiverAddress = trim($_POST['receiver_address'] ?? '');
+        $shippingFee     = (float)($_POST['shipping_fee'] ?? 0);
+        $paymentMethod   = trim($_POST['payment_method'] ?? 'cod');
+        $paymentStatus   = trim($_POST['payment_status'] ?? 'unpaid');
+        $status          = trim($_POST['status'] ?? 'cho_xac_nhan');
+
+        // Chỉ cho sửa thông tin nhận hàng khi đơn ở 3 trạng thái đầu
+        $editableStatuses = ['cho_xac_nhan', 'da_dat_hang', 'dang_lay_hang'];
+        $canEditReceiver  = in_array($order['status'], $editableStatuses, true);
+
+        if (!$canEditReceiver) {
+            $changed = $receiverName !== $order['receiver_name']
+                    || $receiverPhone !== $order['receiver_phone']
+                    || $receiverAddress !== $order['receiver_address'];
+            if ($changed) {
+                $errors[] = "Đơn ở trạng thái này không được phép sửa thông tin người nhận.";
+            }
+            // Bắt buộc giữ nguyên dữ liệu cũ
+            $receiverName    = $order['receiver_name'];
+            $receiverPhone   = $order['receiver_phone'];
+            $receiverAddress = $order['receiver_address'];
+        }
+
+        if ($receiverName === '') {
+            $errors[] = "Họ tên người nhận không được để trống.";
+        }
+
+        if ($receiverPhone === '') {
+            $errors[] = "Số điện thoại không được để trống.";
+        } elseif (!preg_match('/^[0-9]{9,11}$/', $receiverPhone)) {
+            $errors[] = "Số điện thoại phải từ 9 đến 11 số.";
+        }
+
+        if ($receiverAddress === '') {
+            $errors[] = "Địa chỉ không được để trống.";
+        }
+
+        if ($shippingFee < 0) {
+            $errors[] = "Phí vận chuyển không được âm.";
+        }
+
+        $allowPayMethod = ['cod'];
+        if (!in_array($paymentMethod, $allowPayMethod, true)) {
+            $errors[] = "Phương thức thanh toán không hợp lệ.";
+        }
+
+        $allowPayStatus = ['unpaid', 'paid', 'dang_hoan_tien', 'da_hoan_tien'];
+        if (!in_array($paymentStatus, $allowPayStatus, true)) {
+            $errors[] = "Trạng thái thanh toán không hợp lệ.";
+        }
+
+        $allowStatus = [
+            'cho_xac_nhan','da_dat_hang','dang_lay_hang','dang_van_chuyen',
+            'da_van_chuyen','hoan_thanh','da_huy'
+        ];
+        if (!in_array($status, $allowStatus, true)) {
+            $errors[] = "Trạng thái đơn hàng không hợp lệ.";
+        }
+
+        if ($order['status'] === 'hoan_thanh' && $status !== 'hoan_thanh') {
+            $errors[] = "Đơn hàng đã hoàn thành, không thể đổi trạng thái.";
+        }
+
+        if ($order['status'] === 'da_huy' && $status !== 'da_huy') {
+            $errors[] = "Đơn hàng đã bị hủy, không thể chuyển sang trạng thái khác.";
+        }
+
+        if ($order['payment_status'] === 'paid' && $paymentStatus !== 'paid' && $order['status'] !== 'da_huy') {
+            $errors[] = "Đơn đã thanh toán, không thể đổi về chưa thanh toán.";
+        }
+
+        $isOnlinePaidPlaced = $order['payment_method'] !== 'cod'
+            && $order['payment_status'] === 'paid'
+            && $order['status'] === 'da_dat_hang';
+
+        if ($isOnlinePaidPlaced && $paymentStatus !== 'paid') {
+            $errors[] = "Đơn thanh toán online đã hoàn tất ở trạng thái 'Đã đặt hàng' — không thể đổi trạng thái thanh toán.";
+        }
+
+        // COD: chỉ cho đổi payment_status khi status được chuyển sang 'hoan_thanh' (Model tự auto set 'paid')
+        if ($order['payment_method'] === 'cod' && $paymentStatus !== $order['payment_status'] && $status !== 'hoan_thanh') {
+            $errors[] = "Đơn COD — trạng thái thanh toán chỉ tự cập nhật khi đơn chuyển sang 'Hoàn thành'. Vui lòng giữ nguyên trạng thái thanh toán.";
+        }
+
+        if ($status === 'hoan_thanh') {
+            $paymentStatus = 'paid';
+        }
+
+        if (empty($errors)) {
+            $productModel->updateOrderInfo($orderId, [
+                'receiver_name'    => $receiverName,
+                'receiver_phone'   => $receiverPhone,
+                'receiver_address' => $receiverAddress,
+                'shipping_fee'     => $shippingFee,
+                'payment_method'   => $paymentMethod,
+                'payment_status'   => $paymentStatus,
+                'status'           => $status,
+            ]);
+
+            header("Location: index.php?act=donhang");
+            exit;
+        }
+
+        $order['receiver_name']    = $receiverName;
+        $order['receiver_phone']   = $receiverPhone;
+        $order['receiver_address'] = $receiverAddress;
+        $order['shipping_fee']     = $shippingFee;
+        $order['payment_method']   = $paymentMethod;
+        $order['payment_status']   = $paymentStatus;
+        $order['status']           = $status;
     }
 
-    // nếu đã hoàn thành thì không cho đổi về các trạng thái trước
+    require_once __DIR__ . '/../views/admin/Order/editOrder.php';
+}
+
+public function updatePaymentStatus() {
+    $this->requireAdmin();
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
+    $orderId = (int)($_POST['order_id'] ?? 0);
+    $payment = trim($_POST['payment_status'] ?? '');
+
+    $allowPay = ['unpaid', 'paid', 'dang_hoan_tien', 'da_hoan_tien'];
+
+    if ($orderId <= 0 || !in_array($payment, $allowPay, true)) {
+        $_SESSION['order_flash'] = ['type' => 'error', 'msg' => 'Dữ liệu cập nhật thanh toán không hợp lệ!'];
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
+    $productModel = new Product();
+    $order = $productModel->getOrderById($orderId);
+
+    if (!$order) {
+        $_SESSION['order_flash'] = ['type' => 'error', 'msg' => 'Không tìm thấy đơn hàng!'];
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
+    $isOnlinePaidPlaced = $order['payment_method'] !== 'cod'
+        && $order['payment_status'] === 'paid'
+        && $order['status'] === 'da_dat_hang';
+
+    if ($isOnlinePaidPlaced && $payment !== 'paid') {
+        $_SESSION['order_flash'] = [
+            'type' => 'error',
+            'msg'  => 'Đơn #' . (int)$orderId . ' thanh toán online đã hoàn thành — không thể thay đổi trạng thái thanh toán.',
+        ];
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
+    // COD: không cho admin tự đổi payment_status. Chỉ được auto-update khi status = hoan_thanh
+    if ($order['payment_method'] === 'cod') {
+        $_SESSION['order_flash'] = [
+            'type' => 'error',
+            'msg'  => 'Đơn #' . (int)$orderId . ' thanh toán COD — trạng thái thanh toán chỉ tự cập nhật khi đơn chuyển sang "Hoàn thành".',
+        ];
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
+    $productModel->updateOrderInfo($orderId, [
+        'receiver_name'    => $order['receiver_name'],
+        'receiver_phone'   => $order['receiver_phone'],
+        'receiver_address' => $order['receiver_address'],
+        'shipping_fee'     => (float)$order['shipping_fee'],
+        'payment_method'   => $order['payment_method'],
+        'payment_status'   => $payment,
+        'status'           => $order['status'],
+    ]);
+
+    $_SESSION['order_flash'] = [
+        'type' => 'success',
+        'msg'  => "Đã cập nhật trạng thái thanh toán đơn #{$orderId}.",
+    ];
+    header("Location: index.php?act=donhang");
+    exit;
+}
+
+public function updateOrderStatus() {
+    $this->requireAdmin();
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
+    $orderId = (int)($_POST['order_id'] ?? 0);
+    $status = trim($_POST['status'] ?? '');
+
+    $allowStatus = [
+        'cho_xac_nhan',
+        'da_dat_hang',
+        'dang_lay_hang',
+        'dang_van_chuyen',
+        'da_van_chuyen',
+        'hoan_thanh',
+        'da_huy'
+    ];
+
+    if ($orderId <= 0 || !in_array($status, $allowStatus, true)) {
+        $_SESSION['order_flash'] = ['type' => 'error', 'msg' => 'Dữ liệu cập nhật không hợp lệ!'];
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
+    $productModel = new Product();
+    $order = $productModel->getOrderById($orderId);
+
+    if (!$order) {
+        $_SESSION['order_flash'] = ['type' => 'error', 'msg' => 'Không tìm thấy đơn hàng!'];
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
     if ($order['status'] === 'hoan_thanh' && $status !== 'hoan_thanh') {
-        echo "Đơn hàng đã hoàn thành, không thể đổi trạng thái!";
-        return;
+        $_SESSION['order_flash'] = [
+            'type' => 'error',
+            'msg'  => 'Đơn hàng #' . (int)$orderId . ' đã hoàn thành, không thể đổi sang trạng thái khác.'
+        ];
+        header("Location: index.php?act=donhang");
+        exit;
+    }
+
+    if ($order['status'] === 'da_huy' && $status !== 'da_huy') {
+        $_SESSION['order_flash'] = [
+            'type' => 'error',
+            'msg'  => 'Đơn hàng #' . (int)$orderId . ' đã bị hủy, không thể chuyển sang trạng thái khác.'
+        ];
+        header("Location: index.php?act=donhang");
+        exit;
     }
 
     $productModel->updateOrderStatusById($orderId, $status);
 
+    $_SESSION['order_flash'] = [
+        'type' => 'success',
+        'msg'  => 'Đã cập nhật trạng thái đơn hàng #' . (int)$orderId . '.'
+    ];
     header("Location: index.php?act=donhang");
     exit;
     }

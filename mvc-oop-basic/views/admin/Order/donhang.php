@@ -1,9 +1,9 @@
-<?php if (session_status() === PHP_SESSION_NONE) session_start(); ?>
+<?php if (session_status() === PHP_SESSION_NONE) session_start();
 
-<?php
 function hienThiTrangThaiDonHang($status) {
     return match ($status) {
         'cho_xac_nhan'    => 'Chờ xác nhận',
+        'da_dat_hang'     => 'Đã đặt hàng',
         'dang_lay_hang'   => 'Đang lấy hàng',
         'dang_van_chuyen' => 'Đang vận chuyển',
         'da_van_chuyen'   => 'Đã vận chuyển',
@@ -12,216 +12,205 @@ function hienThiTrangThaiDonHang($status) {
         default => 'Không xác định',
     };
 }
-
-function hienThiTrangThaiThanhToan($paymentStatus) {
-    return match ($paymentStatus) {
-        'unpaid' => 'Chưa thanh toán',
-        'paid' => 'Đã thanh toán',
-        default => 'Không xác định',
+function pillClass($s){
+    return match($s){
+        'cho_xac_nhan'=>'warn',
+        'da_dat_hang'=>'violet',
+        'dang_lay_hang','dang_van_chuyen','da_van_chuyen'=>'info',
+        'hoan_thanh'=>'success',
+        'da_huy'=>'danger',
+        default=>'muted',
     };
 }
+function hienThiTrangThaiThanhToan($paymentStatus) {
+    return match ($paymentStatus) {
+        'unpaid'         => 'Chưa thanh toán',
+        'paid'           => 'Đã thanh toán',
+        'dang_hoan_tien' => 'Đang hoàn tiền',
+        'da_hoan_tien'   => 'Đã hoàn tiền',
+        default          => 'Không xác định',
+    };
+}
+
+$orders = $orders ?? [];
+
+$pageTitle = 'Đơn hàng';
+$pageBadge = 'Vận hành';
+$pageSubtitle = 'Theo dõi và cập nhật trạng thái đơn hàng theo thời gian thực.';
+$activeMenu = 'order';
+$breadcrumb = ['Vận hành', 'Đơn hàng'];
+
+require __DIR__ . '/../_layout_header.php';
+
+$flash = $_SESSION['order_flash'] ?? null;
+unset($_SESSION['order_flash']);
+
+$cntPending = 0; $cntDone = 0; $cntPaid = 0; $totalRev = 0;
+foreach ($orders as $o) {
+    if ($o['status']==='cho_xac_nhan') $cntPending++;
+    if ($o['status']==='hoan_thanh') $cntDone++;
+    if ($o['payment_status']==='paid') $cntPaid++;
+    $totalRev += (int)$o['total'];
+}
 ?>
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Quản lý đơn hàng</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        body {
-            background: #f5f7fb;
-        }
 
-        .sidebar {
-            height: 100vh;
-            background: #1e293b;
-        }
+<?php if ($flash): ?>
+    <div class="alert-soft <?= $flash['type'] === 'success' ? 'success' : '' ?>" id="orderFlash" style="display:flex;align-items:center;gap:10px">
+        <i class="bi <?= $flash['type'] === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' ?>" style="font-size:18px"></i>
+        <span style="flex:1"><?= e_admin($flash['msg']) ?></span>
+        <button type="button" onclick="document.getElementById('orderFlash').remove()" style="background:none;border:0;color:inherit;font-size:18px;cursor:pointer;opacity:.6"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <script>setTimeout(()=>{const el=document.getElementById('orderFlash');if(el)el.style.transition='opacity .4s';if(el)el.style.opacity=0;setTimeout(()=>el?.remove(),500)},5000);</script>
+<?php endif; ?>
 
-        .sidebar a {
-            color: #cbd5e1;
-            padding: 12px 20px;
-            display: block;
-            text-decoration: none;
-            border-radius: 8px;
-            margin: 5px 10px;
-            transition: 0.3s;
-        }
-
-        .sidebar a:hover {
-            background: #334155;
-            color: #fff;
-        }
-
-        .sidebar a.active {
-            background: #3b82f6;
-            color: #fff;
-        }
-
-        .header {
-            background: white;
-            border-radius: 12px;
-        }
-
-        .table td, .table th {
-            vertical-align: middle;
-        }
-
-        .badge-status {
-            padding: 8px 12px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: 600;
-            display: inline-block;
-        }
-
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-completed {
-            background: #d1e7dd;
-            color: #0f5132;
-        }
-
-        .status-cancelled {
-            background: #f8d7da;
-            color: #842029;
-        }
-
-        .payment-unpaid {
-            background: #ffe5b4;
-            color: #9a6700;
-        }
-
-        .payment-paid {
-            background: #d1e7dd;
-            color: #0f5132;
-        }
-    </style>
-</head>
-<body>
-
-<div class="container-fluid">
-    <div class="row">
-        <?php $currentAct = $_GET['act'] ?? '/'; ?>
-
-        <div class="col-md-2 sidebar p-3">
-            <h4 class="text-white text-center mb-4">HDTT</h4>
-
-            <a href="?act=adminProduct" class="<?= ($currentAct == 'adminProduct') ? 'active' : '' ?>">
-                <i class="bi bi-box"></i> Danh mục Sản phẩm
-            </a>
-
-            <a href="?act=CateProduct" class="<?= ($currentAct == 'CateProduct') ? 'active' : '' ?>">
-                <i class="bi bi-bag"></i> sản phẩm
-            </a>
-
-            <a href="?act=users" class="<?= ($currentAct == 'users') ? 'active' : '' ?>">
-                <i class="bi bi-people"></i> Người dùng
-            </a>
-
-            <a href="?act=donhang" class="<?= ($currentAct == 'donhang') ? 'active' : '' ?>">
-                <i class="bi bi-receipt"></i> Đơn hàng
-            </a>
-            <a href="?act=thongke" class="<?= ($currentAct == 'thongke') ? 'active' : '' ?>">
-                <i class="bi bi-bar-chart"></i> Thống kê
-            </a>
-        </div>
-
-        <div class="col-md-10 p-3">
-            <div class="header d-flex justify-content-between align-items-center p-3 shadow-sm mb-4">
-                <h5 class="mb-0">Quản lý đơn hàng</h5>
-                <div>
-                    <span class="me-3 fw-semibold"><?= htmlspecialchars($_SESSION['user'] ?? '') ?></span>
-                    <a href="?act=logout" class="btn btn-danger btn-sm">Đăng xuất</a>
-                </div>
-            </div>
-
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <?php if (!empty($orders)): ?>
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Mã đơn</th>
-                                        <th>Khách hàng</th>
-                                        <th>Người nhận</th>
-                                        <th>SĐT</th>
-                                        <th>Địa chỉ</th>
-                                        <th>Tổng tiền</th>
-                                        <th>Phí ship</th>
-                                        <th>PTTT</th>
-                                        <th>Trạng thái hiện tại</th>
-                                        <th>Thanh toán hiện tại</th>
-                                        <th>Cập nhật</th>
-                                        <th>Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($orders as $order): ?>
-                                        <tr>
-                                            <td>#<?= $order['id'] ?></td>
-                                            <td><?= htmlspecialchars($order['username'] ?? '') ?></td>
-                                            <td><?= htmlspecialchars($order['receiver_name']) ?></td>
-                                            <td><?= htmlspecialchars($order['receiver_phone']) ?></td>
-                                            <td><?= htmlspecialchars($order['receiver_address']) ?></td>
-                                            <td><?= number_format($order['total']) ?>đ</td>
-                                            <td><?= number_format($order['shipping_fee']) ?>đ</td>
-                                            <td>
-                                                <?= ($order['payment_method'] === 'cod') ? 'Thanh toán khi nhận hàng' : htmlspecialchars($order['payment_method']) ?>
-                                            </td>
-                                            <td>
-                                                <span class="badge-status 
-                                                    <?= $order['status'] === 'pending' ? 'status-pending' : '' ?>
-                                                    <?= $order['status'] === 'completed' ? 'status-completed' : '' ?>
-                                                    <?= $order['status'] === 'cancelled' ? 'status-cancelled' : '' ?>">
-                                                    <?= hienThiTrangThaiDonHang($order['status']) ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge-status 
-                                                    <?= $order['payment_status'] === 'unpaid' ? 'payment-unpaid' : '' ?>
-                                                    <?= $order['payment_status'] === 'paid' ? 'payment-paid' : '' ?>">
-                                                    <?= hienThiTrangThaiThanhToan($order['payment_status']) ?>
-                                                </span>
-                                            </td>
-                                            <td style="min-width: 220px;">
-                                                <form method="POST" action="index.php?act=updateOrderStatus" class="d-flex gap-2">
-                                                    <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
-
-                                                    <select name="status" class="form-select form-select-sm">
-                                                        <option value="cho_xac_nhan" <?= $order['status'] === 'cho_xac_nhan' ? 'selected' : '' ?>>Chờ xác nhận</option>
-                                                        <option value="dang_lay_hang" <?= $order['status'] === 'dang_lay_hang' ? 'selected' : '' ?>>Đang lấy hàng</option>
-                                                        <option value="dang_van_chuyen" <?= $order['status'] === 'dang_van_chuyen' ? 'selected' : '' ?>>Đang vận chuyển</option>
-                                                        <option value="da_van_chuyen" <?= $order['status'] === 'da_van_chuyen' ? 'selected' : '' ?>>Đã vận chuyển</option>
-                                                        <option value="hoan_thanh" <?= $order['status'] === 'hoan_thanh' ? 'selected' : '' ?>>Hoàn thành</option>
-                                                        <option value="da_huy" <?= $order['status'] === 'da_huy' ? 'selected' : '' ?>>Đã hủy</option>
-                                                    </select>
-
-                                                    <button type="submit" class="btn btn-primary btn-sm">Cập nhật</button>
-                                                </form>
-                                            </td>
-                                            <td>
-                                                <a href="index.php?act=detailOrder&id=<?= $order['id'] ?>" class="btn btn-info btn-sm">
-                                                    Xem chi tiết
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php else: ?>
-                        <div class="alert alert-info mb-0">Chưa có đơn hàng nào.</div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
+<div class="stat-grid">
+    <div class="stat">
+        <div class="glow c1"></div>
+        <div class="icon-tile g1"><i class="bi bi-receipt"></i></div>
+        <div class="label">Tổng đơn</div>
+        <div class="value"><?= count($orders) ?></div>
+    </div>
+    <div class="stat">
+        <div class="glow c2"></div>
+        <div class="icon-tile g2"><i class="bi bi-hourglass-split"></i></div>
+        <div class="label">Chờ xác nhận</div>
+        <div class="value"><?= $cntPending ?></div>
+    </div>
+    <div class="stat">
+        <div class="glow c3"></div>
+        <div class="icon-tile g3"><i class="bi bi-check2-circle"></i></div>
+        <div class="label">Hoàn thành</div>
+        <div class="value"><?= $cntDone ?></div>
+    </div>
+    <div class="stat">
+        <div class="glow c4"></div>
+        <div class="icon-tile g4"><i class="bi bi-cash-coin"></i></div>
+        <div class="label">Tổng giá trị</div>
+        <div class="value mono"><?= number_format($totalRev) ?>₫</div>
     </div>
 </div>
 
-</body>
-</html>
+<div class="surface">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div>
+            <div style="font-size:11px;color:var(--text-mut);text-transform:uppercase;letter-spacing:1.4px;font-weight:600">Danh sách</div>
+            <h3 style="margin:4px 0 0;font-size:18px;font-weight:700">Tất cả đơn hàng</h3>
+        </div>
+    </div>
+
+    <?php if (!empty($orders)): ?>
+    <div style="overflow-x:auto">
+    <table class="data-table" style="min-width:1200px">
+        <thead>
+            <tr>
+                <th>Mã</th>
+                <th>Khách</th>
+                <th>Người nhận</th>
+                <th>Liên hệ</th>
+                <th>Tổng</th>
+                <th>PTTT</th>
+                <th>Trạng thái</th>
+                <th>Thanh toán</th>
+                <th>Cập nhật</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($orders as $o): ?>
+            <tr>
+                <td class="mono" style="font-weight:700;color:var(--accent-2)">#<?= (int)$o['id'] ?></td>
+                <td><?= e_admin($o['username'] ?? '-') ?></td>
+                <td style="font-weight:600"><?= e_admin($o['receiver_name']) ?></td>
+                <td style="font-size:12px;color:var(--text-mut)">
+                    <div class="mono"><?= e_admin($o['receiver_phone']) ?></div>
+                    <div style="white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis"><?= e_admin($o['receiver_address']) ?></div>
+                </td>
+                <td>
+                    <div class="mono" style="font-weight:700;color:#fff"><?= number_format($o['total']) ?>₫</div>
+                    <div style="font-size:11px;color:var(--text-mut)">+ ship <?= number_format($o['shipping_fee']) ?>₫</div>
+                </td>
+                <td>
+                    <span class="pill muted"><?= $o['payment_method']==='cod' ? 'COD' : e_admin($o['payment_method']) ?></span>
+                </td>
+                <td>
+                    <span class="pill <?= pillClass($o['status']) ?>"><?= hienThiTrangThaiDonHang($o['status']) ?></span>
+                </td>
+                <td style="min-width:230px">
+                    <?php
+                        $payPill = match($o['payment_status']) {
+                            'paid'           => 'success',
+                            'dang_hoan_tien' => 'warn',
+                            'da_hoan_tien'   => 'info',
+                            default          => 'warn',
+                        };
+                        $payLocked = $o['payment_method'] !== 'cod'
+                                  && $o['payment_status'] === 'paid'
+                                  && $o['status'] === 'da_dat_hang';
+                        $isCod = $o['payment_method'] === 'cod';
+                    ?>
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                        <span class="pill <?= $payPill ?>" style="align-self:flex-start"><?= hienThiTrangThaiThanhToan($o['payment_status']) ?></span>
+                        <?php if ($payLocked): ?>
+                            <span class="pill success" style="align-self:flex-start;font-size:10.5px" title="Online đã thanh toán + đã đặt hàng — đã khoá">
+                                <i class="bi bi-lock-fill"></i> Đã khoá
+                            </span>
+                        <?php elseif ($isCod): ?>
+                            <span class="pill muted" style="align-self:flex-start;font-size:10.5px" title="COD — tự cập nhật khi đơn hoàn thành">
+                                <i class="bi bi-lock-fill"></i> Tự động khi hoàn thành
+                            </span>
+                        <?php else: ?>
+                            <form method="POST" action="index.php?act=updatePaymentStatus" style="display:flex;gap:6px">
+                                <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                                <select name="payment_status">
+                                    <option value="unpaid"         <?= $o['payment_status']==='unpaid'?'selected':'' ?>>Chưa thanh toán</option>
+                                    <option value="paid"           <?= $o['payment_status']==='paid'?'selected':'' ?>>Đã thanh toán</option>
+                                    <option value="dang_hoan_tien" <?= $o['payment_status']==='dang_hoan_tien'?'selected':'' ?>>Đang hoàn tiền</option>
+                                    <option value="da_hoan_tien"   <?= $o['payment_status']==='da_hoan_tien'?'selected':'' ?>>Đã hoàn tiền</option>
+                                </select>
+                                <button class="btn-ghost" title="Cập nhật thanh toán"><i class="bi bi-arrow-repeat"></i></button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </td>
+                <td style="min-width:230px">
+                    <?php if ($o['status'] === 'hoan_thanh'): ?>
+                        <span class="pill success" title="Đơn đã hoàn thành — đã khoá">
+                            <i class="bi bi-lock-fill"></i> Đã khoá
+                        </span>
+                    <?php elseif ($o['status'] === 'da_huy'): ?>
+                        <span class="pill danger" title="Đơn đã hủy — đã khoá">
+                            <i class="bi bi-lock-fill"></i> Đã khoá
+                        </span>
+                    <?php else: ?>
+                        <form method="POST" action="index.php?act=updateOrderStatus" style="display:flex;gap:6px">
+                            <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                            <select name="status">
+                                <option value="cho_xac_nhan" <?= $o['status']==='cho_xac_nhan'?'selected':'' ?>>Chờ xác nhận</option>
+                                <option value="da_dat_hang" <?= $o['status']==='da_dat_hang'?'selected':'' ?>>Đã đặt hàng</option>
+                                <option value="dang_lay_hang" <?= $o['status']==='dang_lay_hang'?'selected':'' ?>>Đang lấy hàng</option>
+                                <option value="dang_van_chuyen" <?= $o['status']==='dang_van_chuyen'?'selected':'' ?>>Đang vận chuyển</option>
+                                <option value="da_van_chuyen" <?= $o['status']==='da_van_chuyen'?'selected':'' ?>>Đã vận chuyển</option>
+                                <option value="hoan_thanh">Hoàn thành</option>
+                                <option value="da_huy" <?= $o['status']==='da_huy'?'selected':'' ?>>Đã hủy</option>
+                            </select>
+                            <button class="btn-ghost" title="Cập nhật"><i class="bi bi-arrow-repeat"></i></button>
+                        </form>
+                    <?php endif; ?>
+                </td>
+                <td style="white-space:nowrap">
+                    <a href="index.php?act=detailOrder&id=<?= (int)$o['id'] ?>" class="btn-ghost info" title="Xem chi tiết đơn">
+                        <i class="bi bi-eye"></i> Chi tiết
+                    </a>
+                    <a href="index.php?act=editOrder&id=<?= (int)$o['id'] ?>" class="btn-ghost warn" title="Sửa đơn"><i class="bi bi-pencil"></i></a>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    </div>
+    <?php else: ?>
+        <div class="empty-box"><i class="bi bi-bag"></i>Chưa có đơn hàng nào.</div>
+    <?php endif; ?>
+</div>
+
+<?php require __DIR__ . '/../_layout_footer.php'; ?>

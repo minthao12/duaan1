@@ -86,6 +86,13 @@ class Product {
         return $stmt->execute();
     }
 
+    public function updateProductName($id, $name) {
+        $sql = "UPDATE products SET name = ? WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("si", $name, $id);
+        return $stmt->execute();
+    }
+
     public function updateProduct($id, $data) {
         $sql = "UPDATE products
                 SET name = ?, category_id = ?, description = ?
@@ -181,55 +188,61 @@ public function deleteProductSafe($productId) {
     // BIẾN THỂ SẢN PHẨM
     // =========================
 
-    public function getAllVariants($keyword = '') {
+    public function getAllVariants($keyword = '', $categoryId = 0) {
     $keyword = trim($keyword);
+    $categoryId = (int)$categoryId;
 
-    if ($keyword == '') {
-        $sql = "SELECT 
-                    pv.id,
-                    pv.product_id,
-                    pv.image,
-                    pv.price,
-                    pv.stock,
-                    p.name AS product_name,
-                    p.description,
-                    c.name AS color_name,
-                    s.name AS size_name
-                FROM product_variants pv
-                JOIN products p ON pv.product_id = p.id
-                JOIN color c ON pv.color_id = c.id
-                JOIN size s ON pv.size_id = s.id
-                WHERE pv.status = 1
-                ORDER BY pv.id DESC";
+    $base = "SELECT
+                pv.id,
+                pv.product_id,
+                pv.image,
+                pv.price,
+                pv.stock,
+                p.name AS product_name,
+                p.category_id,
+                p.description,
+                c.name AS color_name,
+                s.name AS size_name
+            FROM product_variants pv
+            JOIN products p ON pv.product_id = p.id
+            JOIN color c ON pv.color_id = c.id
+            JOIN size s ON pv.size_id = s.id
+            WHERE pv.status = 1";
+
+    if ($keyword === '' && $categoryId <= 0) {
+        $sql = $base . " ORDER BY pv.id DESC";
         $result = $this->conn->query($sql);
-    } else {
-        $sql = "SELECT 
-                    pv.id,
-                    pv.product_id,
-                    pv.image,
-                    pv.price,
-                    pv.stock,
-                    p.name AS product_name,
-                    p.description,
-                    c.name AS color_name,
-                    s.name AS size_name
-                FROM product_variants pv
-                JOIN products p ON pv.product_id = p.id
-                JOIN color c ON pv.color_id = c.id
-                JOIN size s ON pv.size_id = s.id
-                WHERE pv.status = 1
-                  AND (
-                        pv.id = ?
-                        OR p.name LIKE ?
-                        OR c.name LIKE ?
-                        OR s.name LIKE ?
-                  )
-                ORDER BY pv.id DESC";
-
+    } elseif ($keyword === '' && $categoryId > 0) {
+        $sql = $base . " AND p.category_id = ? ORDER BY pv.id DESC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $categoryId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } elseif ($keyword !== '' && $categoryId <= 0) {
+        $sql = $base . " AND (
+                            pv.id = ?
+                            OR p.name LIKE ?
+                            OR c.name LIKE ?
+                            OR s.name LIKE ?
+                        ) ORDER BY pv.id DESC";
         $stmt = $this->conn->prepare($sql);
         $id = is_numeric($keyword) ? (int)$keyword : 0;
         $like = "%$keyword%";
         $stmt->bind_param("isss", $id, $like, $like, $like);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } else {
+        $sql = $base . " AND p.category_id = ?
+                         AND (
+                            pv.id = ?
+                            OR p.name LIKE ?
+                            OR c.name LIKE ?
+                            OR s.name LIKE ?
+                         ) ORDER BY pv.id DESC";
+        $stmt = $this->conn->prepare($sql);
+        $id = is_numeric($keyword) ? (int)$keyword : 0;
+        $like = "%$keyword%";
+        $stmt->bind_param("iisss", $categoryId, $id, $like, $like, $like);
         $stmt->execute();
         $result = $stmt->get_result();
     }
@@ -562,6 +575,171 @@ public function deleteProductSafe($productId) {
         return $stmt->execute();
     }
 
+    // ========== WISHLIST ==========
+
+    public function getWishlistByUser($userId) {
+        $sql = "SELECT
+                    w.id AS wishlist_id, w.created_at,
+                    p.id AS product_id, p.name AS product_name, p.category_id, p.description,
+                    (SELECT pv.image FROM product_variants pv
+                     WHERE pv.product_id = p.id AND pv.status = 1 LIMIT 1) AS image,
+                    (SELECT MIN(pv.price) FROM product_variants pv
+                     WHERE pv.product_id = p.id AND pv.status = 1) AS min_price,
+                    (SELECT MAX(pv.price) FROM product_variants pv
+                     WHERE pv.product_id = p.id AND pv.status = 1) AS max_price,
+                    (SELECT SUM(pv.stock) FROM product_variants pv
+                     WHERE pv.product_id = p.id AND pv.status = 1) AS total_stock
+                FROM wishlist w
+                JOIN products p ON p.id = w.product_id
+                WHERE w.user_id = ?
+                ORDER BY w.id DESC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $data = [];
+        while ($row = $result->fetch_assoc()) $data[] = $row;
+        return $data;
+    }
+
+    public function getWishlistProductIds($userId) {
+        $sql = "SELECT product_id FROM wishlist WHERE user_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $ids = [];
+        while ($row = $result->fetch_assoc()) $ids[] = (int)$row['product_id'];
+        return $ids;
+    }
+
+    public function addWishlist($userId, $productId) {
+        $sql = "INSERT IGNORE INTO wishlist (user_id, product_id) VALUES (?, ?)";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $userId, $productId);
+        return $stmt->execute();
+    }
+
+    public function removeWishlist($userId, $productId) {
+        $sql = "DELETE FROM wishlist WHERE user_id = ? AND product_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $userId, $productId);
+        return $stmt->execute();
+    }
+
+    public function isInWishlist($userId, $productId) {
+        $sql = "SELECT 1 FROM wishlist WHERE user_id = ? AND product_id = ? LIMIT 1";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $userId, $productId);
+        $stmt->execute();
+        return (bool)$stmt->get_result()->fetch_assoc();
+    }
+
+    public function countWishlist($userId) {
+        $sql = "SELECT COUNT(*) AS c FROM wishlist WHERE user_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        return (int)($row['c'] ?? 0);
+    }
+
+    public function getRelatedProducts($productId, $categoryId, $limit = 4) {
+        $sql = "SELECT
+                    p.id AS product_id,
+                    p.name AS product_name,
+                    (SELECT pv2.image FROM product_variants pv2
+                     WHERE pv2.product_id = p.id AND pv2.status = 1 LIMIT 1) AS image,
+                    (SELECT MIN(pv3.price) FROM product_variants pv3
+                     WHERE pv3.product_id = p.id AND pv3.status = 1) AS min_price,
+                    (SELECT MAX(pv3.price) FROM product_variants pv3
+                     WHERE pv3.product_id = p.id AND pv3.status = 1) AS max_price,
+                    (SELECT SUM(pv4.stock) FROM product_variants pv4
+                     WHERE pv4.product_id = p.id AND pv4.status = 1) AS total_stock
+                FROM products p
+                WHERE p.category_id = ? AND p.id <> ?
+                HAVING image IS NOT NULL
+                ORDER BY p.id DESC
+                LIMIT ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("iii", $categoryId, $productId, $limit);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $data = [];
+        while ($row = $result->fetch_assoc()) $data[] = $row;
+        return $data;
+    }
+
+    public function getCommentsByProduct($productId) {
+        $sql = "SELECT r.id, r.rating, r.content, r.created_at,
+                       u.username, u.avatar
+                FROM reviews r
+                LEFT JOIN users u ON r.user_id = u.id
+                WHERE r.product_id = ?
+                ORDER BY r.created_at DESC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $productId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $data = [];
+        while ($row = $result->fetch_assoc()) $data[] = $row;
+        return $data;
+    }
+
+    public function addComment($userId, $productId, $rating, $content) {
+        $sql = "INSERT INTO reviews (user_id, product_id, rating, content) VALUES (?, ?, ?, ?)";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("iiis", $userId, $productId, $rating, $content);
+        return $stmt->execute();
+    }
+
+    public function getTopSellingProducts($limit = 8) {
+        $sql = "SELECT
+                    p.id AS product_id,
+                    p.name AS product_name,
+                    p.category_id,
+                    p.description,
+                    (SELECT pv2.image
+                     FROM product_variants pv2
+                     WHERE pv2.product_id = p.id AND pv2.status = 1
+                     LIMIT 1) AS image,
+                    (SELECT MIN(pv3.price)
+                     FROM product_variants pv3
+                     WHERE pv3.product_id = p.id AND pv3.status = 1) AS min_price,
+                    (SELECT MAX(pv3.price)
+                     FROM product_variants pv3
+                     WHERE pv3.product_id = p.id AND pv3.status = 1) AS max_price,
+                    (SELECT SUM(pv4.stock)
+                     FROM product_variants pv4
+                     WHERE pv4.product_id = p.id AND pv4.status = 1) AS total_stock,
+                    COALESCE(SUM(od.quantity), 0) AS sold_qty
+                FROM products p
+                LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.status = 1
+                LEFT JOIN order_details od ON od.variant_id = pv.id
+                LEFT JOIN orders o ON o.id = od.order_id AND o.status <> 'da_huy'
+                GROUP BY p.id, p.name, p.category_id, p.description
+                HAVING image IS NOT NULL
+                ORDER BY sold_qty DESC, p.id DESC
+                LIMIT ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $limit);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $data = [];
+        while ($row = $result->fetch_assoc()) {
+            $data[] = $row;
+        }
+        return $data;
+    }
+
+    public function restoreVariantStock($variantId, $quantity) {
+        $sql = "UPDATE product_variants SET stock = stock + ? WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $quantity, $variantId);
+        return $stmt->execute();
+    }
+
     public function removeManyCartItems($userId, $cartIds) {
         if (empty($cartIds)) {
             return false;
@@ -630,20 +808,71 @@ public function getAllOrders() {
 }
 
 public function getOrderById($id) {
-    $sql = "SELECT * FROM orders WHERE id = ? LIMIT 1";
+    $sql = "SELECT o.*, u.username, u.email AS user_email, u.std AS user_phone
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.id
+            WHERE o.id = ? LIMIT 1";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $id);
     $stmt->execute();
     return $stmt->get_result()->fetch_assoc();
 }
 
+public function updateOrderInfo($id, $data) {
+    if (($data['status'] ?? '') === 'hoan_thanh') {
+        $data['payment_status'] = 'paid';
+    }
+
+    // Đơn online khi chuyển sang "đã đặt hàng" → tự động đánh dấu đã thanh toán
+    if (($data['status'] ?? '') === 'da_dat_hang'
+        && ($data['payment_method'] ?? 'cod') !== 'cod') {
+        $data['payment_status'] = 'paid';
+    }
+
+    $sql = "UPDATE orders
+            SET receiver_name = ?,
+                receiver_phone = ?,
+                receiver_address = ?,
+                shipping_fee = ?,
+                payment_method = ?,
+                payment_status = ?,
+                status = ?
+            WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param(
+        "sssdsssi",
+        $data['receiver_name'],
+        $data['receiver_phone'],
+        $data['receiver_address'],
+        $data['shipping_fee'],
+        $data['payment_method'],
+        $data['payment_status'],
+        $data['status'],
+        $id
+    );
+    return $stmt->execute();
+}
+
+public function markOrderPaid($id) {
+    $sql = "UPDATE orders SET payment_status = 'paid' WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $id);
+    return $stmt->execute();
+}
+
 public function updateOrderStatusById($id, $status) {
     if ($status === 'hoan_thanh') {
-        $sql = "UPDATE orders 
+        $sql = "UPDATE orders
                 SET status = ?, payment_status = 'paid'
                 WHERE id = ?";
+    } elseif ($status === 'da_dat_hang') {
+        // Nếu đơn này là online (không phải COD) → đánh dấu đã thanh toán luôn
+        $sql = "UPDATE orders
+                SET status = ?,
+                    payment_status = CASE WHEN payment_method <> 'cod' THEN 'paid' ELSE payment_status END
+                WHERE id = ?";
     } else {
-        $sql = "UPDATE orders 
+        $sql = "UPDATE orders
                 SET status = ?
                 WHERE id = ?";
     }
@@ -699,9 +928,10 @@ public function getOrderDetails($orderId) {
 }
 
 public function getOrderByIdAndUser($orderId, $userId) {
-    $sql = "SELECT * 
-            FROM orders 
-            WHERE id = ? AND user_id = ?
+    $sql = "SELECT o.*, u.username, u.email AS user_email
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.id
+            WHERE o.id = ? AND o.user_id = ?
             LIMIT 1";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("ii", $orderId, $userId);
