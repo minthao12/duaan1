@@ -24,6 +24,10 @@ switch ($act) {
         (new HomeController())->detailProduct();
         break;
 
+    case 'addComment':
+        (new HomeController())->addComment();
+        break;
+
     case 'loginUser':
         (new HomeController())->loginUser();
         break;
@@ -64,8 +68,44 @@ switch ($act) {
         (new HomeController())->placeOrder();
         break;
 
+    case 'payGateway':
+        (new HomeController())->payGateway();
+        break;
+
+    case 'payConfirm':
+        (new HomeController())->payConfirm();
+        break;
+
     case 'myOrders':
         (new HomeController())->myOrders();
+        break;
+
+    case 'profile':
+        (new HomeController())->profile();
+        break;
+
+    case 'wishlist':
+        (new HomeController())->wishlist();
+        break;
+
+    case 'toggleWishlist':
+        (new HomeController())->toggleWishlist();
+        break;
+
+    case 'confirmOrder':
+        (new HomeController())->confirmOrder();
+        break;
+
+    case 'editReceiverInfo':
+        (new HomeController())->editReceiverInfo();
+        break;
+
+    case 'cancelOrder':
+        (new HomeController())->cancelOrder();
+        break;
+
+    case 'reorder':
+        (new HomeController())->reorder();
         break;
 
     // ===== ADMIN =====
@@ -151,6 +191,14 @@ switch ($act) {
 
     case 'updateOrderStatus':
         (new admincontroller())->updateOrderStatus();
+        break;
+
+    case 'updatePaymentStatus':
+        (new admincontroller())->updatePaymentStatus();
+        break;
+
+    case 'editOrder':
+        (new admincontroller())->editOrder();
         break;
 
     case 'logout':

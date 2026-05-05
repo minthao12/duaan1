@@ -131,6 +131,23 @@ class User
 
     public function update(int $id, array $data): bool
     {
+        if (isset($data['role'])) {
+            $stmt = $this->conn->prepare("
+                UPDATE users
+                SET username = ?, email = ?, std = ?, diachi = ?, role = ?
+                WHERE id = ?
+            ");
+
+            return $stmt->execute([
+                $data['username'],
+                $data['email'],
+                $data['std'],
+                $data['diachi'],
+                $data['role'],
+                $id
+            ]);
+        }
+
         $stmt = $this->conn->prepare("
             UPDATE users
             SET username = ?, email = ?, std = ?, diachi = ?
@@ -144,6 +161,29 @@ class User
             $data['diachi'],
             $id
         ]);
+    }
+
+    public function updateProfile(int $id, array $data): bool
+    {
+        $stmt = $this->conn->prepare("
+            UPDATE users
+            SET username = ?, email = ?, std = ?, diachi = ?, avatar = ?
+            WHERE id = ?
+        ");
+        return $stmt->execute([
+            $data['username'],
+            $data['email'],
+            $data['std'],
+            $data['diachi'],
+            $data['avatar'],
+            $id,
+        ]);
+    }
+
+    public function updatePassword(int $id, string $newPasswordHash): bool
+    {
+        $stmt = $this->conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+        return $stmt->execute([$newPasswordHash, $id]);
     }
 
     public function delete(int $id): bool
